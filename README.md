@@ -20,12 +20,21 @@ communicate with the server using WebSockets.
 
 ## Remote testing over the internet
 
-During development you may want teammates to try the game from their own
-devices. Expose your local server with a tunneling service and share the public
-URL it provides.
+### Prerequisites
 
-1. Start the FastAPI server as shown above.
-2. In another terminal, run a tunnel to port `8000`. For example:
+- Dependencies installed with `pip install -r requirements.txt`
+- FastAPI server running locally:
+
+  ```bash
+  uvicorn backend.main:app --reload
+  ```
+
+### Usage
+
+1. Expose your running server to the internet using one of the following
+   methods:
+
+   **Tunnel**
 
    ```bash
    # Cloudflare tunnel (no account required)
@@ -35,6 +44,19 @@ URL it provides.
    ngrok http 8000
    ```
 
-3. The command prints a public HTTPS address. Give that URL to testers so they
-   can connect to your running instance.
-4. Press `Ctrl+C` in the tunnel process when testing is complete.
+   The command prints a public HTTPS address. Share that URL with testers.
+
+   **Render (free hosting)**
+
+   1. Push this repository to a public GitHub repo.
+   2. Create a new web service on [Render](https://render.com) using your repo.
+   3. Set the start command to `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+   4. Ensure a `PORT` environment variable is defined (Render sets it automatically).
+   5. Render deploys the app and provides a public URL to share.
+
+### Troubleshooting
+
+- If the tunnel command fails, ensure port `8000` is reachable and not blocked.
+- If the Render service doesn't start, verify that requirements are installed,
+  the start command matches the example above, and the app is binding to
+  `0.0.0.0` on the `PORT` environment variable.
