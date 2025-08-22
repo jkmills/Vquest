@@ -48,15 +48,19 @@ communicate with the server using WebSockets.
 
    **Render (free hosting)**
 
+   This repository includes a `render.yaml` configuration for one-click deploys.
+
    1. Push this repository to a public GitHub repo.
-   2. Create a new web service on [Render](https://render.com) using your repo.
-   3. Set the start command to `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
-   4. Ensure a `PORT` environment variable is defined (Render sets it automatically).
-   5. Render deploys the app and provides a public URL to share.
+   2. Create a new web service on [Render](https://render.com) and choose
+      "Deploy from repository".
+   3. Render reads `render.yaml`, installs dependencies, and starts the app
+      with `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+   4. Render sets the `PORT` environment variable automatically and provides a
+      public URL to share.
 
 ### Troubleshooting
 
 - If the tunnel command fails, ensure port `8000` is reachable and not blocked.
-- If the Render service doesn't start, verify that requirements are installed,
-  the start command matches the example above, and the app is binding to
-  `0.0.0.0` on the `PORT` environment variable.
+- If the Render service doesn't start, ensure `render.yaml` is present,
+  dependencies installed, and the app is binding to `0.0.0.0` on the `PORT`
+  environment variable.
