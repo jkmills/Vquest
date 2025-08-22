@@ -1,11 +1,14 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
 from typing import Dict, List
+import os
+from pathlib import Path
 
 from . import rooms, models
 
 app = FastAPI()
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+static_dir = Path(__file__).resolve().parent.parent / "static"
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 
 class ConnectionManager:
@@ -72,3 +75,10 @@ async def room_ws(code: str, websocket: WebSocket) -> None:
             await manager.broadcast(code, {"message": data})
     except WebSocketDisconnect:
         manager.disconnect(code, websocket)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=port)
