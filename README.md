@@ -11,11 +11,9 @@ Install the dependencies and start the FastAPI server:
 
 ```bash
 pip install -r requirements.txt
-uvicorn server:app --reload
+uvicorn backend.main:app --reload
 ```
 
-Create a room by sending a `POST` request to `/room`. The response contains a
-random room code that players can use to join. Players submit actions via
-`POST /room/{code}/action` and can vote on the submitted actions with
-`POST /room/{code}/vote`.
-
+Open `static/player.html` on a phone or browser for the player view and
+`static/dm.html?code=ROOMCODE` on a large display for the DM screen. The pages
+communicate with the server using WebSockets.
