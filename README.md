@@ -28,7 +28,11 @@ This repository includes a `render.yaml` configuration for one-click deploys on
 1. Push this repository to a public GitHub repo.
 2. Create a new web service on Render and choose "Deploy from repository".
 3. Render reads `render.yaml`, installs dependencies, and starts the app with
+<<<<<<< HEAD
    `npm start`.
+=======
+   `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+>>>>>>> main
 4. Render sets the `PORT` environment variable automatically and provides a
    public URL to share.
 
