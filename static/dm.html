@@ -5,24 +5,51 @@
   <title>DM Screen</title>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const ws = new WebSocket(`ws://${location.host}/room/${code}`);
-
     function App() {
+      const [roomCode, setRoomCode] = React.useState(null);
       const [log, setLog] = React.useState([]);
+      const wsRef = React.useRef(null);
+
+      const createRoom = async () => {
+        const res = await fetch('/room', { method: 'POST' });
+        const data = await res.json();
+        setRoomCode(data.code);
+      };
+
       React.useEffect(() => {
-        ws.onmessage = (event) => {
-          setLog(prev => [...prev, JSON.parse(event.data)]);
-        };
-      }, []);
+        if (!roomCode) return;
+        const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${wsProto}://${location.host}/room/${roomCode}`);
+        ws.onmessage = (e) => setLog(prev => [...prev, JSON.parse(e.data)]);
+        wsRef.current = ws;
+        return () => ws.close();
+      }, [roomCode]);
+
+      React.useEffect(() => {
+        if (!roomCode) return;
+        const joinUrl = `${location.origin}/?code=${roomCode}`;
+        const qrEl = document.getElementById('qr');
+        qrEl.innerHTML = '';
+        QRCode.toCanvas(joinUrl, { width: 200 }, (err, canvas) => {
+          if (err) return console.error(err);
+          qrEl.appendChild(canvas);
+        });
+      }, [roomCode]);
+
       return React.createElement('div', null,
         React.createElement('h1', null, 'DM Screen'),
-        log.map((entry, i) => React.createElement('pre', {key: i}, JSON.stringify(entry)))
+        !roomCode && React.createElement('button', {onClick: createRoom}, 'Create Room'),
+        roomCode && React.createElement('div', null,
+          React.createElement('h2', null, `Room ${roomCode}`),
+          React.createElement('div', {id: 'qr'}),
+          React.createElement('h3', null, 'Live events'),
+          React.createElement('div', null, log.map((l, i) => React.createElement('pre', {key: i}, JSON.stringify(l))))
+        )
       );
     }
 

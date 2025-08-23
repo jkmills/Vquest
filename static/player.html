@@ -50,4 +50,60 @@
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
   </script>
 </body>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Player View</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codeParam = params.get('code') || '';
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    function App() {
+      const [name, setName] = React.useState('');
+      const [code, setCode] = React.useState(codeParam);
+      const [playerId, setPlayerId] = React.useState(null);
+
+      const join = async () => {
+        const res = await fetch(`/room/${code}/join`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name})
+        });
+        const data = await res.json();
+        setPlayerId(data.id);
+      };
+
+      const sendAction = async () => {
+        const text = document.getElementById('actionText').value;
+        await fetch(`/room/${code}/action`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({player_id: playerId, text})
+        });
+      };
+
+      return React.createElement('div', null,
+        React.createElement('h1', null, 'Player'),
+        React.createElement('div', null,
+          'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
+        React.createElement('div', null,
+          'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
+        React.createElement('button', {onClick: join}, 'Join'),
+        playerId && React.createElement('div', null,
+          React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
+          React.createElement('button', {onClick: sendAction}, 'Send')
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
 </html>

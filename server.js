@@ -9,7 +9,12 @@ app.use(express.static('static'));
 
 // Serve a default player page at root so the app responds to GET /
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'static', 'player.html'));
+  res.sendFile(path.join(__dirname, 'static', 'dm.html'));
+});
+
+// Simple healthcheck for Render
+app.get('/health', (_req, res) => {
+  res.sendStatus(200);
 });
 
 const server = http.createServer(app);
@@ -99,6 +104,7 @@ wss.on('connection', (ws, req) => {
 });
 
 const port = process.env.PORT || 3000;
-server.listen(port, () => {
+// Bind explicitly to 0.0.0.0 for Render's port-binding checks
+server.listen(port, '0.0.0.0', () => {
   console.log(`Server listening on port ${port}`);
 });
