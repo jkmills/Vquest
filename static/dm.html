@@ -50,6 +50,12 @@
         setRoomCode(data.code);
       };
 
+      const nextStep = async () => {
+        await fetch(`/room/${roomCode}/next`, {
+          method: 'POST'
+        });
+      };
+
       React.useEffect(() => {
         if (!roomCode) return;
         const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -124,9 +130,10 @@
         ),
         roomCode && React.createElement('div', null,
           React.createElement('h2', null, `Room ${roomCode}`),
+          React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Next Step'),
           React.createElement('div', {id: 'qr'}),
           React.createElement('h3', null, 'Live events'),
-          React.createElement('div', null, log.map((l, i) => React.createElement('pre', {key: i}, JSON.stringify(l)))
+          React.createElement('div', null, log.map((l, i) => React.createElement('pre', {key: i}, JSON.stringify(l, null, 2))))
         ),
         showSettings && React.createElement(SettingsModal, {
           quests, editQuest,
