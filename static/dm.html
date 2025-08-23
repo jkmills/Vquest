@@ -108,7 +108,12 @@
           React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
         ),
         questObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, questObj.context),
-        !roomCode && React.createElement('button', {onClick: createRoom}, 'Create Room'),
+        !roomCode && [
+          React.createElement('button', {onClick: createRoom, key: 'create'}, 'Create Room'),
+          React.createElement('div', {style: {marginTop: '1em', color: '#444'}, key: 'instructions'},
+            'Select a quest and click Create Room to begin. Players will join using the QR code after the room is created.'
+          )
+        ],
         roomCode && React.createElement('div', null,
           React.createElement('h2', null, `Room ${roomCode}`),
           React.createElement('div', {id: 'qr'}),
