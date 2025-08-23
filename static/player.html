@@ -23,6 +23,7 @@
       const [prompt, setPrompt] = React.useState('');
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
+      const [hasVoted, setHasVoted] = React.useState(false);
       const wsRef = React.useRef(null);
 
       const join = async () => {
@@ -45,7 +46,12 @@
           const data = JSON.parse(e.data);
           if (data.context) setContext(data.context);
           if (data.prompt) setPrompt(data.prompt);
-          if (data.actions) setActions(data.actions);
+          if (data.actions) {
+            setActions(data.actions);
+            if (data.actions.length === 0) {
+              setHasVoted(false); // Reset for new round
+            }
+          }
           if (data.votes) setVotes(data.votes);
         };
         wsRef.current = ws;
@@ -67,6 +73,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({player_id: playerId, choice})
         });
+        setHasVoted(true);
       };
 
       return React.createElement('div', null,
@@ -88,7 +95,7 @@
           React.createElement('h2', null, 'Actions'),
           actions.map((action, i) =>
             React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
-              React.createElement('button', {onClick: () => vote(i)}, 'Vote'),
+              React.createElement('button', {onClick: () => vote(i), disabled: hasVoted}, 'Vote'),
               ` ${action.text} (${votes[i] || 0} votes)`
             )
           )
