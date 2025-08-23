@@ -14,6 +14,8 @@
       const [code, setCode] = React.useState('');
       const [playerId, setPlayerId] = React.useState(null);
 
+      const [context, setContext] = React.useState('');
+      const [prompt, setPrompt] = React.useState('');
       const join = async () => {
         const res = await fetch(`/room/${code}/join`, {
           method: 'POST',
@@ -22,6 +24,8 @@
         });
         const data = await res.json();
         setPlayerId(data.id);
+        setContext(data.context || '');
+        setPrompt(data.prompt || '');
       };
 
       const sendAction = async () => {
@@ -40,10 +44,12 @@
         React.createElement('div', null,
           'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
         React.createElement('button', {onClick: join}, 'Join'),
-        playerId && React.createElement('div', null,
-          React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
-          React.createElement('button', {onClick: sendAction}, 'Send')
-        )
+        playerId && [
+          context && React.createElement('div', {key: 'context', style: {margin: '1em 0', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+          prompt && React.createElement('div', {key: 'prompt', style: {margin: '1em 0', fontWeight: 'bold', color: '#2c1a0b'}}, prompt),
+          React.createElement('input', {id: 'actionText', placeholder: 'Your action', key: 'action'}),
+          React.createElement('button', {onClick: sendAction, key: 'send'}, 'Send')
+        ]
       );
     }
 

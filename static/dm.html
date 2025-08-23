@@ -37,7 +37,15 @@
 
       // Create room with selected quest context
       const createRoom = async () => {
-        const res = await fetch('/room', { method: 'POST' });
+        const questObj = quests.find(q => q.name === selectedQuest);
+        const res = await fetch('/room', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            context: questObj?.context || '',
+            prompt: questObj?.prompt || 'The adventure begins! What will you do first?'
+          })
+        });
         const data = await res.json();
         setRoomCode(data.code);
       };

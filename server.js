@@ -32,16 +32,26 @@ function generateCode(length = 5) {
   return code;
 }
 
-function createRoom() {
+function createRoom(context, prompt) {
   const code = generateCode();
-  const room = { code, players: new Map(), actions: [], votes: [] };
+  const room = {
+    code,
+    players: new Map(),
+    actions: [],
+    votes: [],
+    context: context || '',
+    prompt: prompt || ''
+  };
   rooms.set(code, room);
   return room;
 }
 
 app.post('/room', (req, res) => {
-  const room = createRoom();
+  const { context, prompt } = req.body || {};
+  const room = createRoom(context, prompt);
   res.json({ code: room.code });
+  // Broadcast context and prompt to all (if any)
+  broadcast(room.code, { context: room.context, prompt: room.prompt });
 });
 
 app.post('/room/:code/join', (req, res) => {
@@ -51,7 +61,12 @@ app.post('/room/:code/join', (req, res) => {
   const name = req.body.name;
   const playerId = generateCode(8);
   room.players.set(playerId, name);
-  res.json({ id: playerId, name });
+  res.json({
+    id: playerId,
+    name,
+    context: room.context,
+    prompt: room.prompt
+  });
 });
 
 app.post('/room/:code/action', (req, res) => {
