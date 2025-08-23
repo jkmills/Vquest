@@ -11,11 +11,31 @@
 <body>
   <div id="root" style="max-width: 500px; margin: 2em auto; background: #fffbe6cc; border-radius: 16px; box-shadow: 2px 2px 12px #0003; padding: 2em;"></div>
   <script>
+
+    // Quest management
+    const QUESTS_KEY = 'vquest_quests';
+    function getQuests() {
+      const raw = localStorage.getItem(QUESTS_KEY);
+      if (raw) return JSON.parse(raw);
+      // Default quests
+      return [
+        { name: 'Dragon Hunt', context: 'A dragon has been terrorizing the kingdom. The party must track it to its lair and defeat it.' },
+        { name: 'Lost Artifact', context: 'A legendary artifact has gone missing from the royal vault. The party must recover it before it falls into the wrong hands.' },
+        { name: 'Haunted Forest', context: 'Villagers report strange happenings in the nearby forest. The party must investigate and lift the curse.' }
+      ];
+    }
+    function saveQuests(qs) { localStorage.setItem(QUESTS_KEY, JSON.stringify(qs)); }
+
     function App() {
       const [roomCode, setRoomCode] = React.useState(null);
       const [log, setLog] = React.useState([]);
+      const [quests, setQuests] = React.useState(getQuests());
+      const [selectedQuest, setSelectedQuest] = React.useState(quests[0]?.name || '');
+      const [showSettings, setShowSettings] = React.useState(false);
+      const [editQuest, setEditQuest] = React.useState(null);
       const wsRef = React.useRef(null);
 
+      // Create room with selected quest context
       const createRoom = async () => {
         const res = await fetch('/room', { method: 'POST' });
         const data = await res.json();
@@ -43,14 +63,121 @@
         });
       }, [roomCode]);
 
+      // Settings modal logic
+      function openSettings() {
+        setEditQuest(null);
+        setShowSettings(true);
+      }
+      function closeSettings() { setShowSettings(false); }
+      function startEdit(q) { setEditQuest(q); setShowSettings(true); }
+      function saveQuest(q) {
+        let newQuests = quests.slice();
+        if (editQuest) {
+          newQuests = newQuests.map(x => x.name === editQuest.name ? q : x);
+        } else {
+          newQuests.push(q);
+        }
+        setQuests(newQuests);
+        saveQuests(newQuests);
+        setEditQuest(null);
+        setShowSettings(false);
+      }
+      function deleteQuest(q) {
+        const newQuests = quests.filter(x => x.name !== q.name);
+        setQuests(newQuests);
+        saveQuests(newQuests);
+        setEditQuest(null);
+        setShowSettings(false);
+        if (selectedQuest === q.name && newQuests.length) setSelectedQuest(newQuests[0].name);
+      }
+
+      // Quest context for current selection
+      const questObj = quests.find(q => q.name === selectedQuest);
+
       return React.createElement('div', null,
         React.createElement('h1', null, 'DM Screen'),
+        React.createElement('div', {style: {marginBottom: '1em'}},
+          React.createElement('label', {htmlFor: 'questSel', style: {fontWeight: 'bold'}}, 'Quest: '),
+          React.createElement('select', {
+            id: 'questSel', value: selectedQuest,
+            onChange: e => setSelectedQuest(e.target.value),
+            style: {fontSize: '1em', marginRight: '1em'}
+          },
+            quests.map(q => React.createElement('option', {key: q.name, value: q.name}, q.name))
+          ),
+          React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
+        ),
+        questObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, questObj.context),
         !roomCode && React.createElement('button', {onClick: createRoom}, 'Create Room'),
         roomCode && React.createElement('div', null,
           React.createElement('h2', null, `Room ${roomCode}`),
           React.createElement('div', {id: 'qr'}),
           React.createElement('h3', null, 'Live events'),
-          React.createElement('div', null, log.map((l, i) => React.createElement('pre', {key: i}, JSON.stringify(l))))
+          React.createElement('div', null, log.map((l, i) => React.createElement('pre', {key: i}, JSON.stringify(l)))
+        ),
+        showSettings && React.createElement(SettingsModal, {
+          quests, editQuest,
+          onClose: closeSettings,
+          onEdit: startEdit,
+          onSave: saveQuest,
+          onDelete: deleteQuest
+        })
+      );
+    }
+
+    // Settings modal component
+    function SettingsModal({quests, editQuest, onClose, onEdit, onSave, onDelete}) {
+      const [name, setName] = React.useState(editQuest ? editQuest.name : '');
+      const [context, setContext] = React.useState(editQuest ? editQuest.context : '');
+      return React.createElement('div', {
+        style: {
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: '#0008', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }
+      },
+        React.createElement('div', {
+          style: {
+            background: '#fffbe6', borderRadius: '16px', padding: '2em', minWidth: '320px', boxShadow: '2px 2px 12px #0003'
+          }
+        },
+          React.createElement('h2', null, editQuest ? 'Edit Quest' : 'Add Quest'),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Name: '),
+            React.createElement('input', {
+              value: name, onChange: e => setName(e.target.value),
+              style: {width: '90%'}
+            })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Context: '),
+            React.createElement('textarea', {
+              value: context, onChange: e => setContext(e.target.value),
+              rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
+            })
+          ),
+          React.createElement('div', {style: {marginTop: '1em'}},
+            React.createElement('button', {
+              onClick: () => name && context && onSave({name, context}),
+              style: {marginRight: '1em'}
+            }, 'Save'),
+            editQuest && React.createElement('button', {
+              onClick: () => onDelete({name, context}),
+              style: {marginRight: '1em', background: '#c44'}
+            }, 'Delete'),
+            React.createElement('button', {onClick: onClose}, 'Cancel')
+          ),
+          React.createElement('hr'),
+          React.createElement('h3', null, 'All Quests'),
+          ...quests.map(q => [
+            React.createElement('div', {
+              key: q.name,
+              style: {margin: '0.5em 0', padding: '0.5em', background: '#f4e1b6', borderRadius: '8px'}
+            },
+              React.createElement('b', null, q.name),
+              React.createElement('span', {style: {marginLeft: '1em'}}, q.context.slice(0, 40) + (q.context.length > 40 ? '...' : '')),
+              React.createElement('button', {onClick: () => onEdit(q), style: {float: 'right'}}, 'Edit')
+            )
+          ])
         )
       );
     }
