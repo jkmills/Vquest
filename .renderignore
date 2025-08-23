@@ -1,0 +1,2 @@
+# Prevent Render from auto-detecting the Python backend
+backend/

@@ -3,6 +3,11 @@
 Vquest is a minimal virtual questing game powered by an AI dungeon master. A main
 instance of the game hosts a room that players can join from their mobile
 devices. Players propose actions for each step in the quest and then vote on the
+## Vquest
+
+Vquest is a minimal virtual questing game powered by an AI dungeon master. A main
+instance of the game hosts a room that players can join from their mobile
+devices. Players propose actions for each step in the quest and then vote on the
 submitted options.
 
 ## Running the server
@@ -28,11 +33,7 @@ This repository includes a `render.yaml` configuration for one-click deploys on
 1. Push this repository to a public GitHub repo.
 2. Create a new web service on Render and choose "Deploy from repository".
 3. Render reads `render.yaml`, installs dependencies, and starts the app with
-<<<<<<< HEAD
    `npm start`.
-=======
-   `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
->>>>>>> main
 4. Render sets the `PORT` environment variable automatically and provides a
    public URL to share.
 
