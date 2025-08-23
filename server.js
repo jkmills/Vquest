@@ -9,7 +9,7 @@ app.use(express.static('static'));
 
 // Serve a default player page at root so the app responds to GET /
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'static', 'player.html'));
+  res.sendFile(path.join(__dirname, 'static', 'dm.html'));
 });
 
 // Simple healthcheck for Render
