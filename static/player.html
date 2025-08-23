@@ -52,9 +52,10 @@
 </body>
 <!DOCTYPE html>
 <html>
-<head>
+</head>
   <meta charset="utf-8">
   <title>Player View</title>
+  <link rel="stylesheet" href="medieval.css">
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script>
@@ -63,7 +64,7 @@
   </script>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root" style="max-width: 500px; margin: 2em auto; background: #fffbe6cc; border-radius: 16px; box-shadow: 2px 2px 12px #0003; padding: 2em;"></div>
   <script>
     function App() {
       const [name, setName] = React.useState('');

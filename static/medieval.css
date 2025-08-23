@@ -1,0 +1,66 @@
+body {
+  font-family: 'UnifrakturCook', 'Cinzel', serif;
+  background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat fixed;
+  color: #2c1a0b;
+  margin: 0;
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  font-family: 'Cinzel', 'UnifrakturCook', serif;
+  text-shadow: 1px 1px 2px #e9c46a;
+}
+
+button {
+  font-family: inherit;
+  background: #e9c46a;
+  color: #2c1a0b;
+  border: 2px solid #2c1a0b;
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  margin: 0.5em 0;
+  font-size: 1.1em;
+  cursor: pointer;
+  box-shadow: 2px 2px 6px #0002;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #f4a261;
+}
+
+input {
+  font-size: 1em;
+  border: 1px solid #2c1a0b;
+  border-radius: 6px;
+  padding: 0.3em 0.7em;
+  margin: 0.2em 0.5em;
+  background: #fffbe6;
+}
+
+#qr {
+  margin: 1em 0;
+  background: #fffbe6cc;
+  padding: 1em;
+  border-radius: 12px;
+  box-shadow: 1px 1px 8px #0003;
+  display: inline-block;
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 1.1em;
+    background-position: top;
+  }
+  #root {
+    padding: 0.5em;
+  }
+  h1 {
+    font-size: 1.5em;
+  }
+  button {
+    font-size: 1em;
+    padding: 0.4em 0.7em;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=UnifrakturCook:wght@700&display=swap');
