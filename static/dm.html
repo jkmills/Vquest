@@ -62,6 +62,12 @@
         });
       };
 
+      const nextStep = async () => {
+        await fetch(`/room/${roomCode}/next`, {
+          method: 'POST'
+        });
+      };
+
       React.useEffect(() => {
         if (!roomCode) return;
         const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
