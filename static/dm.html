@@ -32,7 +32,8 @@
 
       React.useEffect(() => {
         if (!roomCode) return;
-        const joinUrl = `${location.origin}/?code=${roomCode}`;
+        // Point QR to the player view so scanners land on the join form
+        const joinUrl = `${location.origin}/player.html?code=${roomCode}`;
         const qrEl = document.getElementById('qr');
         qrEl.innerHTML = '';
         QRCode.toCanvas(joinUrl, { width: 200 }, (err, canvas) => {
