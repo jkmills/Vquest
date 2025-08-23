@@ -7,16 +7,16 @@ submitted options.
 
 ## Running the server
 
-Install the dependencies and start the FastAPI server:
+Install the dependencies and start the Node server:
 
 ```bash
-pip install -r requirements.txt
-uvicorn backend.main:app --reload
+npm install
+npm start
 ```
 
 Open `static/player.html` on a phone or browser for the player view and
-`static/dm.html?code=ROOMCODE` on a large display for the DM screen. The pages
-communicate with the server using WebSockets.
+`static/dm.html?code=ROOMCODE` on a large display for the DM screen. These
+pages are built with React and communicate with the server using WebSockets.
 
 ## Remote testing over the internet
 
@@ -28,7 +28,11 @@ This repository includes a `render.yaml` configuration for one-click deploys on
 1. Push this repository to a public GitHub repo.
 2. Create a new web service on Render and choose "Deploy from repository".
 3. Render reads `render.yaml`, installs dependencies, and starts the app with
+<<<<<<< HEAD
+   `npm start`.
+=======
    `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+>>>>>>> main
 4. Render sets the `PORT` environment variable automatically and provides a
    public URL to share.
 

@@ -3,19 +3,30 @@
 <head>
   <meta charset="utf-8">
   <title>DM Screen</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 </head>
 <body>
-  <h1>DM Screen</h1>
-  <div id="log"></div>
+  <div id="root"></div>
   <script>
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const ws = new WebSocket(`ws://${location.host}/room/${code}`);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const log = document.getElementById('log');
-      log.innerHTML += `<pre>${JSON.stringify(data)}</pre>`;
-    };
+
+    function App() {
+      const [log, setLog] = React.useState([]);
+      React.useEffect(() => {
+        ws.onmessage = (event) => {
+          setLog(prev => [...prev, JSON.parse(event.data)]);
+        };
+      }, []);
+      return React.createElement('div', null,
+        React.createElement('h1', null, 'DM Screen'),
+        log.map((entry, i) => React.createElement('pre', {key: i}, JSON.stringify(entry)))
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
   </script>
 </body>
 </html>

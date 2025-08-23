@@ -3,42 +3,51 @@
 <head>
   <meta charset="utf-8">
   <title>Player View</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 </head>
 <body>
-  <h1>Player</h1>
-  <label>Name <input id="name"></label>
-  <label>Room <input id="code"></label>
-  <button id="join">Join</button>
-
-  <div id="action" style="display:none;">
-    <input id="actionText" placeholder="Your action">
-    <button id="sendAction">Send</button>
-  </div>
-
+  <div id="root"></div>
   <script>
-    let playerId;
-    document.getElementById('join').onclick = async () => {
-      const name = document.getElementById('name').value;
-      const code = document.getElementById('code').value;
-      const res = await fetch(`/room/${code}/join`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name})
-      });
-      const data = await res.json();
-      playerId = data.id;
-      document.getElementById('action').style.display = 'block';
-    };
+    function App() {
+      const [name, setName] = React.useState('');
+      const [code, setCode] = React.useState('');
+      const [playerId, setPlayerId] = React.useState(null);
 
-    document.getElementById('sendAction').onclick = async () => {
-      const text = document.getElementById('actionText').value;
-      const code = document.getElementById('code').value;
-      await fetch(`/room/${code}/action`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({player_id: playerId, text})
-      });
-    };
+      const join = async () => {
+        const res = await fetch(`/room/${code}/join`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name})
+        });
+        const data = await res.json();
+        setPlayerId(data.id);
+      };
+
+      const sendAction = async () => {
+        const text = document.getElementById('actionText').value;
+        await fetch(`/room/${code}/action`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({player_id: playerId, text})
+        });
+      };
+
+      return React.createElement('div', null,
+        React.createElement('h1', null, 'Player'),
+        React.createElement('div', null,
+          'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
+        React.createElement('div', null,
+          'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
+        React.createElement('button', {onClick: join}, 'Join'),
+        playerId && React.createElement('div', null,
+          React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
+          React.createElement('button', {onClick: sendAction}, 'Send')
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
   </script>
 </body>
 </html>
