@@ -1,10 +1,16 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('static'));
+
+// Serve a default player page at root so the app responds to GET /
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'static', 'player.html'));
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
