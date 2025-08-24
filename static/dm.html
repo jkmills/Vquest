@@ -53,6 +53,7 @@
       const [phase, setPhase] = React.useState('SUBMITTING');
       const [winningAction, setWinningAction] = React.useState(null);
       const [worldImage, setWorldImage] = React.useState(null);
+      const [isGeneratingImage, setIsGeneratingImage] = React.useState(false);
 
       // Create room with selected world description
       const createRoom = async () => {
@@ -73,22 +74,30 @@
       };
 
       const generateImage = async () => {
+        setIsGeneratingImage(true);
         const worldObj = worlds.find(w => w.name === selectedWorld);
-        const res = await fetch('/world/image', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            description: worldObj?.description || '',
-            artStyle: worldObj?.artStyle || ''
-          })
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          alert(`Error generating image: ${err.detail || 'Unknown error'}`);
-          return;
+        try {
+          const res = await fetch('/world/image', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              description: worldObj?.description || '',
+              artStyle: worldObj?.artStyle || ''
+            })
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            alert(`Error generating image: ${err.detail || 'Unknown error'}`);
+            return;
+          }
+          const data = await res.json();
+          setWorldImage(data.imageUrl);
+        } catch (error) {
+          console.error("Image generation request failed", error);
+          alert('An unexpected error occurred during image generation.');
+        } finally {
+          setIsGeneratingImage(false);
         }
-        const data = await res.json();
-        setWorldImage(data.imageUrl);
       };
 
       const nextStep = async () => {
@@ -259,10 +268,30 @@
             return React.createElement('div', null,
               React.createElement('h2', null, 'World Image'),
               worldObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, worldObj.description),
-              worldImage && React.createElement('img', {src: worldImage, style: {maxWidth: '100%', borderRadius: '8px'}}),
+
+              isGeneratingImage && React.createElement('div', {style: {margin: '1em 0', textAlign: 'center'}},
+                React.createElement('p', null, 'Generating image, please wait...')
+              ),
+
+              !isGeneratingImage && worldImage && React.createElement('img', {src: worldImage, style: {maxWidth: '100%', borderRadius: '8px', marginTop: '1em'}}),
+
               React.createElement('div', {style: {marginTop: '1em', textAlign: 'center'}},
-                React.createElement('button', {onClick: generateImage, style: {fontSize: '1em', padding: '0.5em 1em', marginRight: '1em'}}, 'Generate Image'),
-                React.createElement('button', {onClick: () => setCreationStep('done'), style: {fontSize: '1em', padding: '0.5em 1em'}}, 'Skip')
+                React.createElement('button', {
+                  onClick: generateImage,
+                  disabled: isGeneratingImage,
+                  style: {fontSize: '1em', padding: '0.5em 1em', marginRight: '1em'}
+                }, isGeneratingImage ? 'Generating...' : 'Generate Image'),
+
+                worldImage && !isGeneratingImage
+                  ? React.createElement('button', {
+                      onClick: () => setCreationStep('done'),
+                      style: {fontSize: '1em', padding: '0.5em 1em'}
+                    }, 'Accept Image')
+                  : React.createElement('button', {
+                      onClick: () => setCreationStep('done'),
+                      disabled: isGeneratingImage,
+                      style: {fontSize: '1em', padding: '0.5em 1em'}
+                    }, 'Skip')
               )
             );
           case 'done':
