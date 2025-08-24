@@ -3,7 +3,9 @@ const http = require('http');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const fetch = require('node-fetch');
+const multer = require('multer');
 
+const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'static')));
@@ -31,6 +33,10 @@ function generateCode(length = 5) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
+}
+
+function logAIInteraction(functionName, data) {
+  console.log(`AI Interaction in ${functionName}:`, JSON.stringify(data, null, 2));
 }
 
 function createRoom(world, prompt, ai_settings) {
@@ -88,13 +94,16 @@ app.post('/world/image', async (req, res) => {
   };
 
   try {
+    logAIInteraction('/world/image', { prompt });
     const response = await fetch(url, options);
     if (!response.ok) {
       const errorBody = await response.text();
+      logAIInteraction('/world/image', { error: errorBody });
       console.error('OpenAI Image API request failed:', errorBody);
       throw new Error(`AI image service failed with status ${response.status}`);
     }
     const data = await response.json();
+    logAIInteraction('/world/image', { response: data });
     res.json({ imageUrl: data.data[0].url });
   } catch (error) {
     console.error('Error in /world/image:', error);
@@ -110,36 +119,85 @@ app.post('/room', (req, res) => {
   broadcast(room.code, { context: room.context, prompt: room.prompt });
 });
 
-app.post('/room/:code/join', (req, res) => {
+async function generateCharacterImage(name, race, imageFile) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('The person who deployed this app has not set the OPENAI_API_KEY environment variable.');
+  }
+
+  let prompt = `A fantasy character portrait of a ${race} named ${name}.`;
+  if (imageFile) {
+    prompt += ` Use the uploaded image as inspiration for the character's appearance.`;
+  }
+
+  const url = 'https://api.openai.com/v1/images/generations';
+  const options = {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1024x1024'
+    })
+  };
+
+  logAIInteraction('generateCharacterImage', { prompt });
+
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    logAIInteraction('generateCharacterImage', { error: errorBody });
+    console.error('OpenAI Image API request failed:', errorBody);
+    throw new Error(`AI image service failed with status ${response.status}`);
+  }
+  const data = await response.json();
+  logAIInteraction('generateCharacterImage', { response: data });
+  return data.data[0].url;
+}
+
+app.post('/room/:code/join', upload.single('image'), async (req, res) => {
   const { code } = req.params;
   const room = rooms.get(code);
   if (!room) return res.status(404).json({ detail: 'Invalid room code' });
-  const name = req.body.name;
+
+  const { name, race } = req.body;
+  const imageFile = req.file;
   const playerId = generateCode(8);
-  const player = {
-    id: playerId,
-    name,
-    character: {
-      stats: {
-        strength: 10,
-        dexterity: 10,
-        intelligence: 10,
+
+  try {
+    const imageUrl = await generateCharacterImage(name, race, imageFile);
+    const player = {
+      id: playerId,
+      name,
+      character: {
+        race,
+        imageUrl,
+        stats: {
+          strength: 10,
+          dexterity: 10,
+          intelligence: 10,
+        },
+        inventory: [],
       },
-      inventory: [],
-    },
-  };
-  room.players.set(playerId, player);
+    };
+    room.players.set(playerId, player);
 
-  // Convert Map to object for JSON serialization
-  const players_obj = Object.fromEntries(room.players);
+    const players_obj = Object.fromEntries(room.players);
+    broadcast(code, { players: players_obj, phase: room.phase });
 
-  broadcast(code, { players: players_obj, phase: room.phase });
-  res.json({
-    ...player,
-    context: room.context,
-    prompt: room.prompt,
-    phase: room.phase,
-  });
+    res.json({
+      ...player,
+      context: room.context,
+      prompt: room.prompt,
+      phase: room.phase,
+    });
+  } catch (error) {
+    console.error('Error in /room/:code/join:', error);
+    res.status(500).json({ detail: 'An error occurred during character creation.', error: error.message });
+  }
 });
 
 app.post('/room/:code/action', (req, res) => {
@@ -279,14 +337,17 @@ async function generate_world_details(world, ai_settings) {
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
+  logAIInteraction('generate_world_details', { provider, model, prompt });
   const response = await fetch(url, options);
   if (!response.ok) {
     const errorBody = await response.text();
+    logAIInteraction('generate_world_details', { error: errorBody });
     console.error(`${provider} API request failed with status ${response.status}:`, errorBody);
     throw new Error(`AI service failed with status ${response.status}`);
   }
 
   const data = await response.json();
+  logAIInteraction('generate_world_details', { response: data });
   const generated_text = data.choices[0]?.message?.content;
 
   if (!generated_text) {
@@ -372,14 +433,17 @@ async function generate_story(room, action) {
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
+  logAIInteraction('generate_story', { provider, prompt });
   const response = await fetch(url, options);
   if (!response.ok) {
     const errorBody = await response.text();
+    logAIInteraction('generate_story', { error: errorBody });
     console.error(`${provider} API request failed with status ${response.status}:`, errorBody);
     throw new Error(`AI service failed with status ${response.status}`);
   }
 
   const data = await response.json();
+  logAIInteraction('generate_story', { response: data });
   const generated_text = data.choices[0]?.message?.content;
 
   if (!generated_text) {

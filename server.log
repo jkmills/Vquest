@@ -1,0 +1,12 @@
+Server listening on port 3000
+Error in /room/:code/join: Error: The person who deployed this app has not set the OPENAI_API_KEY environment variable.
+    at generateCharacterImage (/app/src/app.js:124:11)
+    at /app/src/app.js:171:28
+    at Layer.handleRequest (/app/node_modules/router/lib/layer.js:152:17)
+    at next (/app/node_modules/router/lib/route.js:157:13)
+    at done (/app/node_modules/multer/lib/make-middleware.js:59:7)
+    at indicateDone (/app/node_modules/multer/lib/make-middleware.js:63:68)
+    at Multipart.<anonymous> (/app/node_modules/multer/lib/make-middleware.js:187:7)
+    at Multipart.emit (node:events:518:28)
+    at emitCloseNT (node:internal/streams/destroy:148:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
