@@ -17,6 +17,9 @@
   <script>
     function App() {
       const [name, setName] = React.useState('');
+      const [race, setRace] = React.useState('Human');
+      const [imageFile, setImageFile] = React.useState(null);
+      const [isLoading, setIsLoading] = React.useState(false);
       const [code, setCode] = React.useState(codeParam);
       const [player, setPlayer] = React.useState(null);
       const [context, setContext] = React.useState('');
@@ -30,11 +33,18 @@
       const wsRef = React.useRef(null);
 
       const join = async () => {
+        setIsLoading(true);
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('race', race);
+        if (imageFile) {
+          formData.append('image', imageFile);
+        }
+
         try {
           const res = await fetch(`/room/${code}/join`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name})
+            body: formData,
           });
           const data = await res.json();
           if (data.id) {
@@ -47,6 +57,8 @@
           }
         } catch (error) {
           console.error('Error joining room:', error);
+        } finally {
+          setIsLoading(false);
         }
       };
 
@@ -111,15 +123,30 @@
         React.createElement('h1', null, 'Player'),
         !player
           ? React.createElement('div', null,
+              React.createElement('h2', null, 'Create Your Character'),
               React.createElement('div', null,
                 'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
               React.createElement('div', null,
-                'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
-              React.createElement('button', {onClick: join}, 'Join')
+                'Race ',
+                React.createElement('select', {value: race, onChange: e => setRace(e.target.value)},
+                  React.createElement('option', {value: 'Human'}, 'Human'),
+                  React.createElement('option', {value: 'Elf'}, 'Elf'),
+                  React.createElement('option', {value: 'Dwarf'}, 'Dwarf'),
+                  React.createElement('option', {value: 'Orc'}, 'Orc'),
+                  React.createElement('option', {value: 'Halfling'}, 'Halfling')
+                )
+              ),
+              React.createElement('div', null,
+                'Appearance (optional) ', React.createElement('input', {type: 'file', onChange: e => setImageFile(e.target.files[0])})
+              ),
+              React.createElement('div', null,
+                'Room Code ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
+              React.createElement('button', {onClick: join, disabled: isLoading}, isLoading ? 'Creating...' : 'Create Character')
             )
           : React.createElement('div', null,
               React.createElement('h2', null, player.name),
               player.character && React.createElement('div', null,
+                player.character.imageUrl && React.createElement('img', {src: player.character.imageUrl, style: {maxWidth: '100%', borderRadius: '8px'}}),
                 React.createElement('h3', null, 'Stats'),
                 player.character.stats && React.createElement('ul', null,
                   Object.entries(player.character.stats).map(([stat, value]) =>
