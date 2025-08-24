@@ -157,7 +157,9 @@
             : React.createElement('div', null,
                 React.createElement('h2', null, `Room ${roomCode}`),
                 React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Next Step'),
-                React.createElement('div', {id: 'qr'}),
+                React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
+                  React.createElement('div', {id: 'qr'})
+                ),
                 React.createElement('h3', null, 'Players'),
                 Object.values(players).map(p => React.createElement('div', {key: p.id},
                   React.createElement('h4', null, p.name),
