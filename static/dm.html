@@ -82,6 +82,11 @@
             artStyle: worldObj?.artStyle || ''
           })
         });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Error generating image: ${err.detail || 'Unknown error'}`);
+          return;
+        }
         const data = await res.json();
         setWorldImage(data.imageUrl);
       };
