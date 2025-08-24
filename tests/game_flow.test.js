@@ -9,9 +9,10 @@ async function testHappyPath() {
     console.log('Starting happy-path game flow test...');
 
     // 1. Create a room
-    const room = createRoom('Test context', 'Test prompt');
+    const room = createRoom('Test context', 'Test prompt', { provider: 'openai', apiKey: 'fakekey' });
     const roomCode = room.code;
     assert.strictEqual(room.phase, 'SUBMITTING', 'Initial phase should be SUBMITTING');
+    assert.deepStrictEqual(room.ai_settings, { provider: 'openai', apiKey: 'fakekey' }, 'AI settings should be stored');
 
     // 2. Simulate two players joining
     const p1res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 1' }) });
@@ -33,9 +34,12 @@ async function testHappyPath() {
 
     // 5. DM advances to the next round (mocking AI)
     const originalFetch = global.fetch;
-    global.fetch = async (url) => {
-        if (url.toString().includes('edenai')) {
-            return { ok: true, status: 200, json: async () => ({ openai: { generated_text: 'A new challenge appears!' } }) };
+    global.fetch = async (url, options) => {
+        const urlStr = url.toString();
+        if (urlStr.includes('openai')) {
+            const body = JSON.parse(options.body);
+            assert.strictEqual(body.model, 'gpt-4', 'Should use correct OpenAI model');
+            return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'A new challenge appears from OpenAI!' } }] }) };
         }
         return originalFetch(url, options);
     };
@@ -55,7 +59,7 @@ async function testAIFailure() {
     console.log('\nStarting AI failure test...');
 
     // 1. Setup room
-    const room = createRoom('AI failure test', 'Test prompt');
+    const room = createRoom('AI failure test', 'Test prompt', { provider: 'openai', apiKey: 'fakekey' });
     const roomCode = room.code;
     const p1res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 1' }) });
     const player1 = await p1res.json();
@@ -65,8 +69,8 @@ async function testAIFailure() {
 
     // 2. Mock the AI call to fail
     const originalFetch = global.fetch;
-    global.fetch = async (url) => {
-        if (url.toString().includes('edenai')) {
+    global.fetch = async (url, options) => {
+        if (url.toString().includes('openai')) {
             return { ok: false, status: 500, text: async () => 'AI service is down' };
         }
         return originalFetch(url, options);

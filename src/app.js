@@ -32,7 +32,7 @@ function generateCode(length = 5) {
   return code;
 }
 
-function createRoom(context, prompt) {
+function createRoom(context, prompt, ai_settings) {
   const code = generateCode();
   const room = {
     code,
@@ -42,6 +42,7 @@ function createRoom(context, prompt) {
     quest_context: context || '',
     context: context || '',
     prompt: prompt || '',
+    ai_settings: ai_settings || { provider: 'openai', apiKey: '' },
     phase: 'SUBMITTING', // Initial phase
     submitted_players: new Set(),
     winningAction: null,
@@ -51,8 +52,8 @@ function createRoom(context, prompt) {
 }
 
 app.post('/room', (req, res) => {
-  const { context, prompt } = req.body || {};
-  const room = createRoom(context, prompt);
+  const { context, prompt, ai_settings } = req.body || {};
+  const room = createRoom(context, prompt, ai_settings);
   res.json({ code: room.code });
   // Broadcast context and prompt to all (if any)
   broadcast(room.code, { context: room.context, prompt: room.prompt });
@@ -161,44 +162,84 @@ app.post('/room/:code/vote', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Get your Eden AI API key from https://app.edenai.run/user/register
-const EDEN_AI_API_KEY = process.env.EDEN_AI_API_KEY || 'YOUR_API_KEY';
+async function generate_story(room, action) {
+  const { quest_context, context: story, ai_settings } = room;
+  const { provider, apiKey } = ai_settings;
+  const prompt = `Quest: ${quest_context}\n\nStory so far: ${story}\n\nThe players decided to: "${action}"\n\nWhat happens next?`;
 
-async function generate_story(quest_context, story, action) {
-  const options = {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${EDEN_AI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      response_as_dict: true,
-      attributes_as_list: false,
-      show_original_response: false,
-      temperature: 0.7,
-      max_tokens: 150,
-      providers: 'openai',
-      text: `Quest: ${quest_context}\n\nStory so far: ${story}\n\nThe players decided to: "${action}"\n\nWhat happens next?`,
-      fallback_providers: ""
-    })
-  };
+  let url, options;
 
-  const response = await fetch('https://api.edenai.run/v2/text/generation', options);
+  switch (provider) {
+    case 'openai':
+      url = 'https://api.openai.com/v1/chat/completions';
+      options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 150
+        })
+      };
+      break;
+    case 'groq':
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+       options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama3-8b-8192",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 150
+        })
+      };
+      break;
+    case 'openrouter':
+      url = 'https://openrouter.ai/api/v1/chat/completions';
+      options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000', // Required by OpenRouter
+          'X-Title': 'VQuest'
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 150
+        })
+      };
+      break;
+    default:
+      throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+
+  const response = await fetch(url, options);
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`Eden AI API request failed with status ${response.status}:`, errorBody);
+    console.error(`${provider} API request failed with status ${response.status}:`, errorBody);
     throw new Error(`AI service failed with status ${response.status}`);
   }
 
   const data = await response.json();
-  const generated_text = data?.openai?.generated_text;
+  const generated_text = data.choices[0]?.message?.content;
 
   if (!generated_text) {
     console.error('AI service response did not contain expected text.', JSON.stringify(data, null, 2));
     throw new Error('AI service response was invalid.');
   }
 
-  return generated_text;
+  return generated_text.trim();
 }
 
 app.post('/room/:code/next', async (req, res) => {
@@ -217,7 +258,7 @@ app.post('/room/:code/next', async (req, res) => {
     }
 
     // 2. AI call
-    const new_story = await generate_story(room.quest_context, room.context, room.winningAction.text);
+    const new_story = await generate_story(room, room.winningAction.text);
     const prompt = "What do you do now?";
 
     // 3. Update room state for the new round

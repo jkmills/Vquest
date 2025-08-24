@@ -26,9 +26,20 @@
     }
     function saveQuests(qs) { localStorage.setItem(QUESTS_KEY, JSON.stringify(qs)); }
 
+    // AI settings management
+    const AI_SETTINGS_KEY = 'vquest_ai_settings';
+    function getAiSettings() {
+      const raw = localStorage.getItem(AI_SETTINGS_KEY);
+      if (raw) return JSON.parse(raw);
+      return { provider: 'openai', apiKey: '' };
+    }
+    function saveAiSettings(s) { localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(s)); }
+
+
     function App() {
       const [roomCode, setRoomCode] = React.useState(null);
       const [quests, setQuests] = React.useState(getQuests());
+      const [aiSettings, setAiSettings] = React.useState(getAiSettings());
       const [selectedQuest, setSelectedQuest] = React.useState(quests[0]?.name || '');
       const [showSettings, setShowSettings] = React.useState(false);
       const [editQuest, setEditQuest] = React.useState(null);
@@ -50,7 +61,8 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             context: questObj?.context || '',
-            prompt: questObj?.prompt || 'The adventure begins! What will you do first?'
+            prompt: questObj?.prompt || 'The adventure begins! What will you do first?',
+            ai_settings: aiSettings
           })
         });
         const data = await res.json();
@@ -125,6 +137,10 @@
         setEditQuest(null);
         setShowSettings(false);
       }
+      function handleAiSettingsChange(newSettings) {
+        setAiSettings(newSettings);
+        saveAiSettings(newSettings);
+      }
       function deleteQuest(q) {
         const newQuests = quests.filter(x => x.name !== q.name);
         setQuests(newQuests);
@@ -141,11 +157,12 @@
         React.createElement('h1', null, 'DM Screen'),
         showSettings
           ? React.createElement(SettingsModal, {
-              quests, editQuest,
+              quests, editQuest, aiSettings,
               onClose: closeSettings,
               onEdit: startEdit,
               onSave: saveQuest,
-              onDelete: deleteQuest
+              onDelete: deleteQuest,
+              onAiSettingsChange: handleAiSettingsChange
             })
           : !roomCode
             ? React.createElement('div', null,
@@ -207,9 +224,17 @@
     }
 
     // Settings modal component
-    function SettingsModal({quests, editQuest, onClose, onEdit, onSave, onDelete}) {
+    function SettingsModal({quests, editQuest, aiSettings, onClose, onEdit, onSave, onDelete, onAiSettingsChange}) {
       const [name, setName] = React.useState(editQuest ? editQuest.name : '');
       const [context, setContext] = React.useState(editQuest ? editQuest.context : '');
+      const [provider, setProvider] = React.useState(aiSettings.provider);
+      const [apiKey, setApiKey] = React.useState(aiSettings.apiKey);
+
+      function handleSaveAi() {
+        onAiSettingsChange({ provider, apiKey });
+        // Maybe close modal or give feedback
+      }
+
       return React.createElement('div', {
         style: {
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -218,9 +243,35 @@
       },
         React.createElement('div', {
           style: {
-            background: '#fffbe6', borderRadius: '16px', padding: '2em', minWidth: '320px', boxShadow: '2px 2px 12px #0003'
+            background: '#fffbe6', borderRadius: '16px', padding: '2em', minWidth: '400px', boxShadow: '2px 2px 12px #0003'
           }
         },
+          React.createElement('button', {onClick: onClose, style: {float: 'right'}}, 'Close'),
+          React.createElement('h2', null, 'Settings'),
+
+          React.createElement('h3', null, 'AI Configuration'),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Provider: '),
+            React.createElement('select', { value: provider, onChange: e => setProvider(e.target.value) },
+              React.createElement('option', {value: 'openai'}, 'OpenAI'),
+              React.createElement('option', {value: 'groq'}, 'Groq'),
+              React.createElement('option', {value: 'openrouter'}, 'OpenRouter')
+            )
+          ),
+          React.createElement('div', null,
+            React.createElement('label', null, 'API Key: '),
+            React.createElement('input', {
+              type: 'password',
+              value: apiKey, onChange: e => setApiKey(e.target.value),
+              style: {width: '90%'}
+            })
+          ),
+          React.createElement('div', {style: {marginTop: '1em'}},
+             React.createElement('button', { onClick: handleSaveAi }, 'Save AI Settings')
+          ),
+
+          React.createElement('hr'),
+
           React.createElement('h2', null, editQuest ? 'Edit Quest' : 'Add Quest'),
           React.createElement('div', null,
             React.createElement('label', null, 'Name: '),
@@ -240,7 +291,7 @@
             React.createElement('button', {
               onClick: () => name && context && onSave({name, context}),
               style: {marginRight: '1em'}
-            }, 'Save'),
+            }, 'Save Quest'),
             editQuest && React.createElement('button', {
               onClick: () => onDelete({name, context}),
               style: {marginRight: '1em', background: '#c44'}
