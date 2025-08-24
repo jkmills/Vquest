@@ -61,12 +61,28 @@ app.post('/room/:code/join', (req, res) => {
   if (!room) return res.status(404).json({ detail: 'Invalid room code' });
   const name = req.body.name;
   const playerId = generateCode(8);
-  room.players.set(playerId, name);
-  res.json({
+  const player = {
     id: playerId,
     name,
+    character: {
+      stats: {
+        strength: 10,
+        dexterity: 10,
+        intelligence: 10,
+      },
+      inventory: [],
+    },
+  };
+  room.players.set(playerId, player);
+
+  // Convert Map to object for JSON serialization
+  const players_obj = Object.fromEntries(room.players);
+
+  broadcast(code, { players: players_obj });
+  res.json({
+    ...player,
     context: room.context,
-    prompt: room.prompt
+    prompt: room.prompt,
   });
 });
 

@@ -38,6 +38,7 @@
       const [prompt, setPrompt] = React.useState('');
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
+      const [players, setPlayers] = React.useState({});
 
       // Create room with selected quest context
       const createRoom = async () => {
@@ -73,6 +74,7 @@
             if (data.prompt) setPrompt(data.prompt);
             if (data.actions) setActions(data.actions);
             if (data.votes) setVotes(data.votes);
+            if (data.players) setPlayers(data.players);
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
           }
@@ -156,6 +158,23 @@
                 React.createElement('h2', null, `Room ${roomCode}`),
                 React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Next Step'),
                 React.createElement('div', {id: 'qr'}),
+                React.createElement('h3', null, 'Players'),
+                Object.values(players).map(p => React.createElement('div', {key: p.id},
+                  React.createElement('h4', null, p.name),
+                  React.createElement('ul', null,
+                    Object.entries(p.character.stats).map(([stat, value]) =>
+                      React.createElement('li', {key: stat}, `${stat}: ${value}`)
+                    )
+                  ),
+                  React.createElement('h5', null, 'Inventory'),
+                  React.createElement('ul', null,
+                    p.character.inventory.length > 0
+                      ? p.character.inventory.map((item, i) =>
+                          React.createElement('li', {key: i}, item)
+                        )
+                      : React.createElement('li', null, 'Empty')
+                  )
+                )),
                 React.createElement('h3', null, 'Story'),
                 React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
                 React.createElement('h3', null, 'Prompt'),
