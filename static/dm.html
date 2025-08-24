@@ -39,6 +39,8 @@
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
       const [players, setPlayers] = React.useState({});
+      const [phase, setPhase] = React.useState('SUBMITTING');
+      const [winningAction, setWinningAction] = React.useState(null);
 
       // Create room with selected quest context
       const createRoom = async () => {
@@ -72,9 +74,18 @@
             const data = JSON.parse(e.data);
             if (data.context) setContext(data.context);
             if (data.prompt) setPrompt(data.prompt);
+            if (data.phase) setPhase(data.phase);
             if (data.actions) setActions(data.actions);
             if (data.votes) setVotes(data.votes);
             if (data.players) setPlayers(data.players);
+            if (data.winningAction) setWinningAction(data.winningAction);
+
+            // When the game resets, clear the old round's data
+            if (data.phase === 'SUBMITTING') {
+                setActions([]);
+                setVotes([]);
+                setWinningAction(null);
+            }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
           }
@@ -156,7 +167,8 @@
               )
             : React.createElement('div', null,
                 React.createElement('h2', null, `Room ${roomCode}`),
-                React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Next Step'),
+                React.createElement('p', null, `Current Phase: `, React.createElement('b', null, phase)),
+                phase === 'POST_VOTE' && React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Start Next Round'),
                 React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
                   React.createElement('div', {id: 'qr'})
                 ),
@@ -186,6 +198,9 @@
                   React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
                     `* ${action.text} (${votes[i] || 0} votes)`
                   )
+                ),
+                winningAction && React.createElement('div', {style: {marginTop: '1em', fontWeight: 'bold', color: 'green'}},
+                  `Winning Action: ${winningAction.text}`
                 )
               )
       );
