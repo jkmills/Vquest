@@ -241,7 +241,7 @@ app.post('/room/:code/next', async (req, res) => {
     res.json({ status: 'ok' });
   } catch (error) {
     console.error('Error in /room/:code/next:', error);
-    res.status(500).json({ detail: 'An error occurred while advancing the game.' });
+    res.status(500).json({ detail: 'An error occurred while advancing the game.', error: error.message });
   }
 });
 
