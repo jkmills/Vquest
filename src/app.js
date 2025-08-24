@@ -47,7 +47,7 @@ function createRoom(world, prompt, ai_settings) {
     players: new Map(),
     actions: [],
     votes: [],
-    context: world.description || '',
+    context: [{ sender: 'DM', text: world.description || 'Welcome to the adventure!' }],
     prompt: prompt || '',
     ai_settings: ai_settings || { provider: 'openai', apiKey: '' },
     phase: 'SUBMITTING', // Initial phase
@@ -220,14 +220,17 @@ app.post('/room/:code/action', (req, res) => {
   room.actions.push({ player_id, text });
   room.submitted_players.add(player_id);
 
+  const player = room.players.get(player_id);
+  room.context.push({ sender: player.name, text: text });
+
   // If all players have submitted, transition to voting phase
   if (room.submitted_players.size === room.players.size && room.players.size > 0) {
     room.phase = 'VOTING';
     // Announce the start of the voting phase and send all actions at once
-    broadcast(code, { phase: room.phase, actions: room.actions });
+    broadcast(code, { phase: room.phase, actions: room.actions, context: room.context });
   } else {
     // Broadcast the count of submitted players so others know the status
-    broadcast(code, { submitted_count: room.submitted_players.size, players_count: room.players.size });
+    broadcast(code, { submitted_count: room.submitted_players.size, players_count: room.players.size, context: room.context });
   }
 
   res.json({ status: 'ok' });
@@ -366,14 +369,16 @@ async function generate_world_details(world, ai_settings) {
 async function generate_story(room, action) {
   const { world, context: story, ai_settings } = room;
   const { provider, apiKey } = ai_settings;
+  const story_text = story.map(m => `${m.sender}: ${m.text}`).join('\n');
   const prompt = `
     World: ${JSON.stringify(world, null, 2)}
 
-    Story so far: ${story}
+    Story so far:
+    ${story_text}
 
     The players decided to: "${action}"
 
-    What happens next?
+    What happens next? Keep your response to 1-3 lines.
   `;
 
   let url, options;
@@ -469,12 +474,17 @@ app.post('/room/:code/next', async (req, res) => {
         return res.status(400).json({ detail: 'No winning action found.' });
     }
 
+    // Add winning action to context
+    const winningPlayer = room.players.get(room.winningAction.player_id);
+    room.context.push({ sender: 'Game', text: `The party decided to: ${room.winningAction.text}` });
+
+
     // 2. AI call
     const new_story = await generate_story(room, room.winningAction.text);
     const prompt = "What do you do now?";
+    room.context.push({ sender: 'DM', text: new_story });
 
     // 3. Update room state for the new round
-    room.context += `\n\n${new_story}`;
     room.prompt = prompt;
     room.actions = [];
     room.votes = [];

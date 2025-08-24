@@ -22,7 +22,7 @@
       const [isLoading, setIsLoading] = React.useState(false);
       const [code, setCode] = React.useState(codeParam);
       const [player, setPlayer] = React.useState(null);
-      const [context, setContext] = React.useState('');
+      const [context, setContext] = React.useState([]);
       const [prompt, setPrompt] = React.useState('');
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
@@ -163,7 +163,14 @@
                 )
               ),
               React.createElement('hr', null),
-              React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+              React.createElement('div', { className: 'chat-container' },
+                context.map((msg, i) =>
+                  React.createElement('div', { key: i, className: `chat-bubble ${msg.sender === 'DM' ? 'dm-message' : ''} ${msg.sender === 'Game' ? 'game-message' : ''}` },
+                    React.createElement('div', { className: 'sender' }, msg.sender),
+                    React.createElement('div', null, msg.text)
+                  )
+                )
+              ),
               React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
 
               phase === 'SUBMITTING' && React.createElement('div', null,

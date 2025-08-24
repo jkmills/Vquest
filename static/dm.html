@@ -45,7 +45,7 @@
       const [editWorld, setEditWorld] = React.useState(null);
       const wsRef = React.useRef(null);
 
-      const [context, setContext] = React.useState('');
+      const [context, setContext] = React.useState([]);
       const [prompt, setPrompt] = React.useState('');
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
@@ -69,7 +69,7 @@
         });
         const data = await res.json();
         setRoomCode(data.code);
-        setContext(worldObj?.description || '');
+        setContext([{ sender: 'DM', text: worldObj?.description || 'Welcome to the adventure!' }]);
         setPrompt(worldObj?.prompt || 'The adventure begins! What will you do first?');
       };
 
@@ -221,7 +221,14 @@
               )
             )),
             React.createElement('h3', null, 'Story'),
-            React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+            React.createElement('div', { className: 'chat-container' },
+              context.map((msg, i) =>
+                React.createElement('div', { key: i, className: `chat-bubble ${msg.sender === 'DM' ? 'dm-message' : ''} ${msg.sender === 'Game' ? 'game-message' : ''}` },
+                  React.createElement('div', { className: 'sender' }, msg.sender),
+                  React.createElement('div', null, msg.text)
+                )
+              )
+            ),
             React.createElement('h3', null, 'Prompt'),
             React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
             React.createElement('h3', null, 'Player Actions'),
