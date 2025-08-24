@@ -1,5 +1,5 @@
 body {
-  font-family: 'UnifrakturCook', 'Cinzel', serif;
+  font-family: 'MedievalSharp', 'Cinzel', serif;
   background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat fixed;
   color: #2c1a0b;
   margin: 0;
@@ -7,8 +7,41 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: 'Cinzel', 'UnifrakturCook', serif;
+  font-family: 'Cinzel', 'MedievalSharp', serif;
   text-shadow: 1px 1px 2px #e9c46a;
+}
+
+.chat-container {
+  background: #f4e1b6;
+  border-radius: 8px;
+  padding: 1em;
+  margin-bottom: 1em;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.chat-bubble {
+  margin-bottom: 0.5em;
+  padding: 0.7em;
+  border-radius: 8px;
+  background: #fffbe6;
+}
+
+.chat-bubble .sender {
+  font-weight: bold;
+  margin-bottom: 0.2em;
+  font-family: 'Cinzel', serif;
+}
+
+.chat-bubble.dm-message {
+  background: #e9c46a;
+}
+
+.chat-bubble.game-message {
+  font-style: italic;
+  text-align: center;
+  background: none;
+  box-shadow: none;
 }
 
 button {
@@ -63,4 +96,4 @@ input {
   }
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=UnifrakturCook:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=MedievalSharp&display=swap');

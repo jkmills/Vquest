@@ -19,9 +19,9 @@
       if (raw) return JSON.parse(raw);
       // Default worlds
       return [
-        { name: 'Dragon\'s Peak', description: 'A dragon has been terrorizing the kingdom. The party must track it to its lair and defeat it.' },
-        { name: 'The Sunken City', description: 'A legendary artifact has gone missing from the royal vault. The party must recover it before it falls into the wrong hands.' },
-        { name: 'Whispering Woods', description: 'Villagers report strange happenings in the nearby forest. The party must investigate and lift the curse.' }
+        { id: `world-${Date.now()}-1`, name: 'Dragon\'s Peak', description: 'A dragon has been terrorizing the kingdom. The party must track it to its lair and defeat it.' },
+        { id: `world-${Date.now()}-2`, name: 'The Sunken City', description: 'A legendary artifact has gone missing from the royal vault. The party must recover it before it falls into the wrong hands.' },
+        { id: `world-${Date.now()}-3`, name: 'Whispering Woods', description: 'Villagers report strange happenings in a nearby forest. The party must investigate and lift the curse.' }
       ];
     }
     function saveWorlds(ws) { localStorage.setItem(WORLDS_KEY, JSON.stringify(ws)); }
@@ -45,7 +45,7 @@
       const [editWorld, setEditWorld] = React.useState(null);
       const wsRef = React.useRef(null);
 
-      const [context, setContext] = React.useState('');
+      const [context, setContext] = React.useState([]);
       const [prompt, setPrompt] = React.useState('');
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
@@ -69,7 +69,7 @@
         });
         const data = await res.json();
         setRoomCode(data.code);
-        setContext(worldObj?.description || '');
+        setContext([{ sender: 'DM', text: worldObj?.description || 'Welcome to the adventure!' }]);
         setPrompt(worldObj?.prompt || 'The adventure begins! What will you do first?');
       };
 
@@ -157,9 +157,10 @@
       function saveWorld(w) {
         let newWorlds = worlds.slice();
         if (editWorld) {
-          newWorlds = newWorlds.map(x => x.name === editWorld.name ? w : x);
+          newWorlds = newWorlds.map(x => x.id === editWorld.id ? w : x);
         } else {
-          newWorlds.push(w);
+          const newWorld = { ...w, id: `world-${Date.now()}` };
+          newWorlds.push(newWorld);
         }
         setWorlds(newWorlds);
         saveWorlds(newWorlds);
@@ -171,7 +172,7 @@
         saveAiSettings(newSettings);
       }
       function deleteWorld(w) {
-        const newWorlds = worlds.filter(x => x.name !== w.name);
+        const newWorlds = worlds.filter(x => x.id !== w.id);
         setWorlds(newWorlds);
         saveWorlds(newWorlds);
         setEditWorld(null);
@@ -221,7 +222,14 @@
               )
             )),
             React.createElement('h3', null, 'Story'),
-            React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+            React.createElement('div', { className: 'chat-container' },
+              context.map((msg, i) =>
+                React.createElement('div', { key: i, className: `chat-bubble ${msg.sender === 'DM' ? 'dm-message' : ''} ${msg.sender === 'Game' ? 'game-message' : ''}` },
+                  React.createElement('div', { className: 'sender' }, msg.sender),
+                  React.createElement('div', null, msg.text)
+                )
+              )
+            ),
             React.createElement('h3', null, 'Prompt'),
             React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
             React.createElement('h3', null, 'Player Actions'),
@@ -245,7 +253,7 @@
                   onChange: e => setSelectedWorld(e.target.value),
                   style: {fontSize: '1em', marginRight: '1em'}
                 },
-                  worlds.map(w => React.createElement('option', {key: w.name, value: w.name}, w.name))
+                  worlds.map(w => React.createElement('option', {key: w.id, value: w.name}, w.name))
                 ),
                 React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
               ),
@@ -458,7 +466,7 @@
           React.createElement('h3', null, 'All Worlds'),
           ...worlds.map(w => [
             React.createElement('div', {
-              key: w.name,
+              key: w.id,
               style: {margin: '0.5em 0', padding: '0.5em', background: '#f4e1b6', borderRadius: '8px'}
             },
               React.createElement('b', null, w.name),
