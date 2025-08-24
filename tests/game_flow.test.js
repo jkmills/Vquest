@@ -1,9 +1,11 @@
 const assert = require('assert');
-const { app, server, createRoom, rooms } = require('../src/app');
+const appModule = require('../src/app');
+const { app, server, createRoom, rooms } = appModule;
 const fetch = require('node-fetch');
 
 const PORT = 3001; // Use a different port for testing
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+let originalFetch;
 
 async function testHappyPath() {
     console.log('Starting happy-path game flow test...');
@@ -15,9 +17,9 @@ async function testHappyPath() {
     assert.deepStrictEqual(room.ai_settings, { provider: 'openai', apiKey: 'fakekey' }, 'AI settings should be stored');
 
     // 2. Simulate two players joining
-    const p1res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 1' }) });
+    const p1res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 1', race: 'Human' }) });
     const player1 = await p1res.json();
-    const p2res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 2' }) });
+    const p2res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 2', race: 'Elf' }) });
     const player2 = await p2res.json();
     assert.strictEqual(rooms.get(roomCode).players.size, 2, 'Room should have 2 players');
 
@@ -33,13 +35,15 @@ async function testHappyPath() {
     assert.strictEqual(rooms.get(roomCode).winningAction.text, 'Action from Player 2', 'Winning action should be correct');
 
     // 5. DM advances to the next round (mocking AI)
-    const originalFetch = global.fetch;
     global.fetch = async (url, options) => {
         const urlStr = url.toString();
         if (urlStr.includes('openai')) {
             const body = JSON.parse(options.body);
+            if (body.model === 'dall-e-3') {
+                return { ok: true, status: 200, json: async () => ({ data: [{ url: 'http://fake-image.com' }] }) };
+            }
             assert.strictEqual(body.model, 'gpt-4', 'Should use correct OpenAI model');
-            return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'A new challenge appears from OpenAI!' } }] }) };
+            return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'A new challenge appears from OpenAI!' } }], usage: { prompt_tokens: 10, completion_tokens: 20 } }) };
         }
         return originalFetch(url, options);
     };
@@ -61,16 +65,16 @@ async function testAIFailure() {
     // 1. Setup room
     const room = createRoom('AI failure test', 'Test prompt', { provider: 'openai', apiKey: 'fakekey' });
     const roomCode = room.code;
-    const p1res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 1' }) });
+    const p1res = await fetch(`${BASE_URL}/room/${roomCode}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Player 1', race: 'Dwarf' }) });
     const player1 = await p1res.json();
     await fetch(`${BASE_URL}/room/${roomCode}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player_id: player1.id, text: 'Action 1' }) });
     await fetch(`${BASE_URL}/room/${roomCode}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player_id: player1.id, choice: 0 }) });
     assert.strictEqual(rooms.get(roomCode).phase, 'POST_VOTE', 'Game should be in POST_VOTE phase');
 
     // 2. Mock the AI call to fail
-    const originalFetch = global.fetch;
     global.fetch = async (url, options) => {
-        if (url.toString().includes('openai')) {
+        const urlStr = url.toString();
+        if (urlStr.includes('openai')) {
             return { ok: false, status: 500, text: async () => 'AI service is down' };
         }
         return originalFetch(url, options);
@@ -88,6 +92,9 @@ async function testAIFailure() {
 
 async function runTests() {
     let testServer;
+    const originalGenerateCharacterImage = appModule.generateCharacterImage;
+    appModule.generateCharacterImage = async () => 'http://fake-image.com';
+
     try {
         // Start server once
         testServer = await new Promise(resolve => {
@@ -104,6 +111,7 @@ async function runTests() {
         console.error('\nA test failed:', error);
         process.exit(1);
     } finally {
+        appModule.generateCharacterImage = originalGenerateCharacterImage;
         // Close server once
         if (testServer) {
             await new Promise(resolve => testServer.close(resolve));

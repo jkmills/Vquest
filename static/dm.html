@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
-  <div id="root" style="max-width: 500px; margin: 2em auto; background: #fffbe6cc; border-radius: 16px; box-shadow: 2px 2px 12px #0003; padding: 2em;"></div>
+<div id="root" style="max-width: 1200px; margin: 1em auto; background: #fffbe6cc; border-radius: 16px; box-shadow: 2px 2px 12px #0003; padding: 1em; height: calc(100vh - 2em);"></div>
   <script>
 
     // World management
@@ -44,6 +44,7 @@
       const [showSettings, setShowSettings] = React.useState(false);
       const [editWorld, setEditWorld] = React.useState(null);
       const wsRef = React.useRef(null);
+      const chatContainerRef = React.useRef(null);
 
       const [context, setContext] = React.useState([]);
       const [prompt, setPrompt] = React.useState('');
@@ -136,6 +137,12 @@
       }, [roomCode]);
 
       React.useEffect(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, [context]);
+
+      React.useEffect(() => {
         if (!roomCode) return;
         // Point QR to the player view so scanners land on the join form
         const joinUrl = `${location.origin}/player.html?code=${roomCode}`;
@@ -186,6 +193,50 @@
       // World description for current selection
       const worldObj = worlds.find(w => w.name === selectedWorld);
 
+      const styles = {
+        dmContainer: {
+          display: 'grid',
+          gridTemplateColumns: '250px 1fr 300px',
+          gap: '1em',
+          height: 'calc(100vh - 100px)', // Adjust height to fit within the container
+          padding: '1em'
+        },
+        leftPanel: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1em'
+        },
+        centerPanel: {
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%'
+        },
+        rightPanel: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1em'
+        },
+        chatContainer: {
+          flexGrow: 1,
+          overflowY: 'auto',
+          border: '1px solid #ccc',
+          borderRadius: '8px',
+          padding: '0.5em',
+          background: '#fff'
+        },
+        playerCard: {
+          background: '#f4e1b6',
+          padding: '0.7em',
+          borderRadius: '8px'
+        },
+        qrContainer: {
+            textAlign: 'center',
+            padding: '1em',
+            background: '#fff',
+            borderRadius: '8px'
+        }
+      };
+
       const mainContent = () => {
         if (showSettings) {
           return React.createElement(SettingsModal, {
@@ -198,49 +249,70 @@
           });
         }
         if (roomCode) {
-          return React.createElement('div', null,
-            React.createElement('h2', null, `Room ${roomCode}`),
-            React.createElement('p', null, `Current Phase: `, React.createElement('b', null, phase)),
-            phase === 'POST_VOTE' && React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Start Next Round'),
-            React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
-              React.createElement('div', {id: 'qr'})
-            ),
-            React.createElement('h3', null, 'Players'),
-            Object.values(players).map(p => React.createElement('div', {key: p.id},
-              React.createElement('h4', null, p.name),
-              React.createElement('ul', null,
-                Object.entries(p.character.stats).map(([stat, value]) =>
-                  React.createElement('li', {key: stat}, `${stat}: ${value}`)
+          return React.createElement('div', { style: styles.dmContainer },
+            // Left Panel
+            React.createElement('div', { style: styles.leftPanel },
+              React.createElement('div', { style: styles.qrContainer },
+                React.createElement('h3', {style: {marginTop: 0}}, `Room ${roomCode}`),
+                React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
+                  React.createElement('div', {id: 'qr'})
                 )
               ),
-              React.createElement('h5', null, 'Inventory'),
-              React.createElement('ul', null,
-                p.character.inventory.length > 0
-                  ? p.character.inventory.map((item, i) =>
-                      React.createElement('li', {key: i}, item)
+              React.createElement('h3', {style: {marginBottom: 0}}, 'Players'),
+              Object.values(players).map(p => React.createElement('div', {key: p.id, style: styles.playerCard},
+                React.createElement('h4', {style: {marginTop: 0}}, p.name),
+                React.createElement('details', null,
+                    React.createElement('summary', null, 'Details'),
+                    React.createElement('ul', null,
+                        Object.entries(p.character.stats).map(([stat, value]) =>
+                        React.createElement('li', {key: stat}, `${stat}: ${value}`)
+                        )
+                    ),
+                    React.createElement('h5', null, 'Inventory'),
+                    React.createElement('ul', null,
+                        p.character.inventory.length > 0
+                        ? p.character.inventory.map((item, i) =>
+                            React.createElement('li', {key: i}, item)
+                            )
+                        : React.createElement('li', null, 'Empty')
                     )
-                  : React.createElement('li', null, 'Empty')
-              )
-            )),
-            React.createElement('h3', null, 'Story'),
-            React.createElement('div', { className: 'chat-container' },
-              context.map((msg, i) =>
-                React.createElement('div', { key: i, className: `chat-bubble ${msg.sender === 'DM' ? 'dm-message' : ''} ${msg.sender === 'Game' ? 'game-message' : ''}` },
-                  React.createElement('div', { className: 'sender' }, msg.sender),
-                  React.createElement('div', null, msg.text)
+                )
+              ))
+            ),
+            // Center Panel
+            React.createElement('div', { style: styles.centerPanel },
+              React.createElement('h3', {style: {marginTop: 0}}, 'Story'),
+              React.createElement('div', { ref: chatContainerRef, style: styles.chatContainer, className: 'chat-container' },
+                context.map((msg, i) =>
+                  React.createElement('div', { key: i, className: `chat-bubble ${msg.sender === 'DM' ? 'dm-message' : ''} ${msg.sender === 'Game' ? 'game-message' : ''}` },
+                    React.createElement('div', { className: 'sender' }, msg.sender),
+                    React.createElement('div', null, msg.text)
+                  )
                 )
               )
             ),
-            React.createElement('h3', null, 'Prompt'),
-            React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
-            React.createElement('h3', null, 'Player Actions'),
-            actions.map((action, i) =>
-              React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
-                `* ${action.text} (${votes[i] || 0} votes)`
-              )
-            ),
-            winningAction && React.createElement('div', {style: {marginTop: '1em', fontWeight: 'bold', color: 'green'}},
-              `Winning Action: ${winningAction.text}`
+            // Right Panel
+            React.createElement('div', { style: styles.rightPanel },
+                React.createElement('div', null,
+                    React.createElement('h3', {style: {marginTop: 0}}, 'Game State'),
+                    React.createElement('p', null, `Current Phase: `, React.createElement('b', null, phase)),
+                    phase === 'POST_VOTE' && React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em', width: '100%'}}, 'Start Next Round'),
+                ),
+                React.createElement('div', null,
+                    React.createElement('h3', null, 'Prompt'),
+                    React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
+                ),
+                React.createElement('div', null,
+                    React.createElement('h3', null, 'Player Actions'),
+                    actions.map((action, i) =>
+                        React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
+                        `* ${action.text} (${votes[i] || 0} votes)`
+                        )
+                    ),
+                    winningAction && React.createElement('div', {style: {marginTop: '1em', fontWeight: 'bold', color: 'green'}},
+                        `Winning Action: ${winningAction.text}`
+                    )
+                )
             )
           );
         }
@@ -317,8 +389,8 @@
         }
       };
 
-      return React.createElement('div', null,
-        React.createElement('h1', null, 'DM Screen'),
+      return React.createElement('div', { style: { height: '100%', display: 'flex', flexDirection: 'column' } },
+        React.createElement('h1', { style: { textAlign: 'center', flexShrink: 0, margin: '0.5em' } }, 'DM Screen'),
         mainContent()
       );
     }
