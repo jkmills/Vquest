@@ -359,7 +359,9 @@ async function generate_world_details(world, ai_settings) {
   }
 
   try {
-    return JSON.parse(generated_text);
+    // The AI can sometimes return JSON wrapped in markdown, so we strip it.
+    const clean_text = generated_text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(clean_text);
   } catch (e) {
     console.error('Failed to parse AI response as JSON:', generated_text);
     throw new Error('AI service returned malformed JSON.');
