@@ -28,12 +28,17 @@
 
     function App() {
       const [roomCode, setRoomCode] = React.useState(null);
-      const [log, setLog] = React.useState([]);
       const [quests, setQuests] = React.useState(getQuests());
       const [selectedQuest, setSelectedQuest] = React.useState(quests[0]?.name || '');
       const [showSettings, setShowSettings] = React.useState(false);
       const [editQuest, setEditQuest] = React.useState(null);
       const wsRef = React.useRef(null);
+
+      const [context, setContext] = React.useState('');
+      const [prompt, setPrompt] = React.useState('');
+      const [actions, setActions] = React.useState([]);
+      const [votes, setVotes] = React.useState([]);
+      const [players, setPlayers] = React.useState({});
 
       // Create room with selected quest context
       const createRoom = async () => {
@@ -48,13 +53,32 @@
         });
         const data = await res.json();
         setRoomCode(data.code);
+        setContext(questObj?.context || '');
+        setPrompt(questObj?.prompt || 'The adventure begins! What will you do first?');
+      };
+
+      const nextStep = async () => {
+        await fetch(`/room/${roomCode}/next`, {
+          method: 'POST'
+        });
       };
 
       React.useEffect(() => {
         if (!roomCode) return;
         const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${wsProto}://${location.host}/room/${roomCode}`);
-        ws.onmessage = (e) => setLog(prev => [...prev, JSON.parse(e.data)]);
+        ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.context) setContext(data.context);
+            if (data.prompt) setPrompt(data.prompt);
+            if (data.actions) setActions(data.actions);
+            if (data.votes) setVotes(data.votes);
+            if (data.players) setPlayers(data.players);
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        };
         wsRef.current = ws;
         return () => ws.close();
       }, [roomCode]);
@@ -104,37 +128,66 @@
 
       return React.createElement('div', null,
         React.createElement('h1', null, 'DM Screen'),
-        React.createElement('div', {style: {marginBottom: '1em'}},
-          React.createElement('label', {htmlFor: 'questSel', style: {fontWeight: 'bold'}}, 'Quest: '),
-          React.createElement('select', {
-            id: 'questSel', value: selectedQuest,
-            onChange: e => setSelectedQuest(e.target.value),
-            style: {fontSize: '1em', marginRight: '1em'}
-          },
-            quests.map(q => React.createElement('option', {key: q.name, value: q.name}, q.name))
-          ),
-          React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
-        ),
-        questObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, questObj.context),
-        !roomCode && React.createElement('div', {style: {marginTop: '2em', textAlign: 'center'}},
-          React.createElement('button', {onClick: createRoom, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Create Room'),
-          React.createElement('div', {style: {marginTop: '1em', color: '#444', fontSize: '1.1em'}},
-            'Select a quest and click Create Room to begin your adventure. Players will join using the QR code after the room is created.'
-          )
-        ),
-        roomCode && React.createElement('div', null,
-          React.createElement('h2', null, `Room ${roomCode}`),
-          React.createElement('div', {id: 'qr'}),
-          React.createElement('h3', null, 'Live events'),
-          React.createElement('div', null, log.map((l, i) => React.createElement('pre', {key: i}, JSON.stringify(l)))
-        ),
-        showSettings && React.createElement(SettingsModal, {
-          quests, editQuest,
-          onClose: closeSettings,
-          onEdit: startEdit,
-          onSave: saveQuest,
-          onDelete: deleteQuest
-        })
+        showSettings
+          ? React.createElement(SettingsModal, {
+              quests, editQuest,
+              onClose: closeSettings,
+              onEdit: startEdit,
+              onSave: saveQuest,
+              onDelete: deleteQuest
+            })
+          : !roomCode
+            ? React.createElement('div', null,
+                React.createElement('div', {style: {marginBottom: '1em'}},
+                  React.createElement('label', {htmlFor: 'questSel', style: {fontWeight: 'bold'}}, 'Quest: '),
+                  React.createElement('select', {
+                    id: 'questSel', value: selectedQuest,
+                    onChange: e => setSelectedQuest(e.target.value),
+                    style: {fontSize: '1em', marginRight: '1em'}
+                  },
+                    quests.map(q => React.createElement('option', {key: q.name, value: q.name}, q.name))
+                  ),
+                  React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
+                ),
+                questObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, questObj.context),
+                React.createElement('div', {style: {marginTop: '2em', textAlign: 'center'}},
+                  React.createElement('button', {onClick: createRoom, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Create Room')
+                )
+              )
+            : React.createElement('div', null,
+                React.createElement('h2', null, `Room ${roomCode}`),
+                React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Next Step'),
+                React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
+                  React.createElement('div', {id: 'qr'})
+                ),
+                React.createElement('h3', null, 'Players'),
+                Object.values(players).map(p => React.createElement('div', {key: p.id},
+                  React.createElement('h4', null, p.name),
+                  React.createElement('ul', null,
+                    Object.entries(p.character.stats).map(([stat, value]) =>
+                      React.createElement('li', {key: stat}, `${stat}: ${value}`)
+                    )
+                  ),
+                  React.createElement('h5', null, 'Inventory'),
+                  React.createElement('ul', null,
+                    p.character.inventory.length > 0
+                      ? p.character.inventory.map((item, i) =>
+                          React.createElement('li', {key: i}, item)
+                        )
+                      : React.createElement('li', null, 'Empty')
+                  )
+                )),
+                React.createElement('h3', null, 'Story'),
+                React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+                React.createElement('h3', null, 'Prompt'),
+                React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
+                React.createElement('h3', null, 'Player Actions'),
+                actions.map((action, i) =>
+                  React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
+                    `* ${action.text} (${votes[i] || 0} votes)`
+                  )
+                )
+              )
       );
     }
 
