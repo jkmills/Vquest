@@ -4,7 +4,7 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 const fetch = require('node-fetch');
 const multer = require('multer');
-const { get_encoding } = require('js-tiktoken');
+const { getEncoding } = require('js-tiktoken');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
@@ -385,7 +385,7 @@ async function generate_world_details(world, ai_settings) {
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
-  const enc = get_encoding('cl100k_base');
+  const enc = getEncoding('cl100k_base');
   const promptTokens = enc.encode(prompt).length;
 
   logAIInteraction('generate_world_details', { provider, model, prompt });
@@ -490,9 +490,9 @@ async function generate_story(room, action) {
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
-  const enc = get_encoding('cl100k_base');
-  const promptTokens = enc.encode(prompt).length;
   const model = room.ai_settings.provider === 'groq' ? 'llama3-8b-8192' : 'gpt-4';
+  const enc = getEncoding('cl100k_base');
+  const promptTokens = enc.encode(prompt).length;
 
   logAIInteraction('generate_story', { provider, model, prompt });
   const response = await fetch(url, options);

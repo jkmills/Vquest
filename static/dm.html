@@ -543,7 +543,7 @@
           React.createElement('hr'),
 
           React.createElement('h3', null, 'All Worlds'),
-          ...worlds.map(w => [
+          worlds.map(w =>
             React.createElement('div', {
               key: w.id,
               style: {margin: '0.5em 0', padding: '0.5em', background: '#f4e1b6', borderRadius: '8px'}
@@ -552,7 +552,7 @@
               React.createElement('span', {style: {marginLeft: '1em'}}, w.description.slice(0, 40) + (w.description.length > 40 ? '...' : '')),
               React.createElement('button', {onClick: () => onEdit(w), style: {float: 'right'}}, 'Edit')
             )
-          ])
+          )
         )
       );
     }
