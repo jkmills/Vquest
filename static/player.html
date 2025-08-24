@@ -30,7 +30,7 @@
         const res = await fetch(`/room/${code}/join`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({name})
+          body: JSON.stringify({player_id: player.id, choice})
         });
         const data = await res.json();
         setPlayer(data);
@@ -76,15 +76,6 @@
         setHasVoted(true);
       };
 
-      const vote = async (choice) => {
-        await fetch(`/room/${code}/vote`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({player_id: playerId, choice})
-        });
-        setHasVoted(true);
-      };
-
       return React.createElement('div', null,
         React.createElement('h1', null, 'Player'),
         !player && React.createElement('div', null,
@@ -96,15 +87,15 @@
         ),
         player && React.createElement('div', null,
           React.createElement('h2', null, player.name),
-          React.createElement('div', null,
+          player.character && React.createElement('div', null,
             React.createElement('h3', null, 'Stats'),
-            React.createElement('ul', null,
+            player.character.stats && React.createElement('ul', null,
               Object.entries(player.character.stats).map(([stat, value]) =>
                 React.createElement('li', {key: stat}, `${stat}: ${value}`)
               )
             ),
             React.createElement('h3', null, 'Inventory'),
-            React.createElement('ul', null,
+            player.character.inventory && React.createElement('ul', null,
               player.character.inventory.length > 0
                 ? player.character.inventory.map((item, i) =>
                     React.createElement('li', {key: i}, item)
