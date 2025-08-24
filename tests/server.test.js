@@ -64,5 +64,45 @@ test('POST /world/autocomplete should return a world object', async (t) => {
     global.fetch = originalFetch;
 });
 
+test('POST /world/image should return 500 if OPENAI_API_KEY is not set', async (t) => {
+    const { app } = require('../src/app.js');
+    const request = require('supertest');
+
+    const response = await request(app)
+        .post('/world/image')
+        .send({
+            description: "A world for testing",
+            artStyle: "Pixel Art"
+        });
+
+    assert.strictEqual(response.status, 500);
+    assert.deepStrictEqual(response.body, {
+        detail: 'The person who deployed this app has not set the OPENAI_API_KEY environment variable.'
+    });
+});
+
+test('POST /world/autocomplete should return 500 if api key is missing', async (t) => {
+    const { app } = require('../src/app.js');
+    const request = require('supertest');
+
+    const response = await request(app)
+        .post('/world/autocomplete')
+        .send({
+            world: {
+                description: "A world for testing"
+            },
+            ai_settings: {
+                provider: 'openai',
+                apiKey: ''
+            }
+        });
+
+    assert.strictEqual(response.status, 500);
+    assert.deepStrictEqual(response.body, {
+        detail: 'An error occurred during auto-complete.',
+        error: 'Missing API key for selected provider.'
+    });
+});
+
 // Make sure to close the server after all tests
 test.after(() => server.close());
