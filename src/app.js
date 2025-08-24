@@ -32,15 +32,15 @@ function generateCode(length = 5) {
   return code;
 }
 
-function createRoom(context, prompt, ai_settings) {
+function createRoom(world, prompt, ai_settings) {
   const code = generateCode();
   const room = {
     code,
+    world: world || {},
     players: new Map(),
     actions: [],
     votes: [],
-    quest_context: context || '',
-    context: context || '',
+    context: world.description || '',
     prompt: prompt || '',
     ai_settings: ai_settings || { provider: 'openai', apiKey: '' },
     phase: 'SUBMITTING', // Initial phase
@@ -51,9 +51,56 @@ function createRoom(context, prompt, ai_settings) {
   return room;
 }
 
+app.post('/world/autocomplete', async (req, res) => {
+  const { description } = req.body;
+  const prompt = `Expand this game world description: "${description}"`;
+  // This is a simplified example. In a real app, you'd get the AI settings from the user.
+  const ai_settings = { provider: 'openai', apiKey: process.env.OPENAI_API_KEY };
+  try {
+    const new_description = await generate_story({ quest_context: '', context: '', ai_settings }, prompt);
+    res.json({ description: new_description });
+  } catch (error) {
+    console.error('Error in /world/autocomplete:', error);
+    res.status(500).json({ detail: 'An error occurred during auto-complete.', error: error.message });
+  }
+});
+
+app.post('/world/image', async (req, res) => {
+  const { description, artStyle } = req.body;
+  const prompt = `A landscape in the style of ${artStyle}, representing a world with the following description: "${description}"`;
+  const url = 'https://api.openai.com/v1/images/generations';
+  const options = {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1024x1024'
+    })
+  };
+
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('OpenAI Image API request failed:', errorBody);
+      throw new Error(`AI image service failed with status ${response.status}`);
+    }
+    const data = await response.json();
+    res.json({ imageUrl: data.data[0].url });
+  } catch (error) {
+    console.error('Error in /world/image:', error);
+    res.status(500).json({ detail: 'An error occurred during image generation.', error: error.message });
+  }
+});
+
 app.post('/room', (req, res) => {
-  const { context, prompt, ai_settings } = req.body || {};
-  const room = createRoom(context, prompt, ai_settings);
+  const { world, prompt, ai_settings } = req.body || {};
+  const room = createRoom(world, prompt, ai_settings);
   res.json({ code: room.code });
   // Broadcast context and prompt to all (if any)
   broadcast(room.code, { context: room.context, prompt: room.prompt });
@@ -163,9 +210,17 @@ app.post('/room/:code/vote', (req, res) => {
 });
 
 async function generate_story(room, action) {
-  const { quest_context, context: story, ai_settings } = room;
+  const { world, context: story, ai_settings } = room;
   const { provider, apiKey } = ai_settings;
-  const prompt = `Quest: ${quest_context}\n\nStory so far: ${story}\n\nThe players decided to: "${action}"\n\nWhat happens next?`;
+  const prompt = `
+    World: ${JSON.stringify(world, null, 2)}
+
+    Story so far: ${story}
+
+    The players decided to: "${action}"
+
+    What happens next?
+  `;
 
   let url, options;
 
