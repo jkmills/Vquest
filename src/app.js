@@ -184,8 +184,21 @@ async function generate_story(quest_context, story, action) {
   };
 
   const response = await fetch('https://api.edenai.run/v2/text/generation', options);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`Eden AI API request failed with status ${response.status}:`, errorBody);
+    throw new Error(`AI service failed with status ${response.status}`);
+  }
+
   const data = await response.json();
-  return data.openai.generated_text;
+  const generated_text = data?.openai?.generated_text;
+
+  if (!generated_text) {
+    console.error('AI service response did not contain expected text.', JSON.stringify(data, null, 2));
+    throw new Error('AI service response was invalid.');
+  }
+
+  return generated_text;
 }
 
 app.post('/room/:code/next', async (req, res) => {
