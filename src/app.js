@@ -67,6 +67,9 @@ app.post('/world/autocomplete', async (req, res) => {
 
 app.post('/world/image', async (req, res) => {
   const { description, artStyle } = req.body;
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ detail: 'The person who deployed this app has not set the OPENAI_API_KEY environment variable.' });
+  }
   const prompt = `A landscape in the style of ${artStyle}, representing a world with the following description: "${description}"`;
   const url = 'https://api.openai.com/v1/images/generations';
   const options = {
@@ -211,6 +214,9 @@ app.post('/room/:code/vote', (req, res) => {
 
 async function generate_world_details(world, ai_settings) {
   const { provider, apiKey } = ai_settings;
+  if (!apiKey) {
+    throw new Error('Missing API key for selected provider.');
+  }
   const prompt = `
     Based on the following partial game world details, expand and fill in the rest of the fields.
     The output should be a single JSON object.

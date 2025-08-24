@@ -165,91 +165,128 @@
         if (selectedWorld === w.name && newWorlds.length) setSelectedWorld(newWorlds[0].name);
       }
 
+      const [creationStep, setCreationStep] = React.useState('start');
+
       // World description for current selection
       const worldObj = worlds.find(w => w.name === selectedWorld);
 
+      const mainContent = () => {
+        if (showSettings) {
+          return React.createElement(SettingsModal, {
+            worlds, editWorld, aiSettings,
+            onClose: closeSettings,
+            onEdit: startEdit,
+            onSave: saveWorld,
+            onDelete: deleteWorld,
+            onAiSettingsChange: handleAiSettingsChange
+          });
+        }
+        if (roomCode) {
+          return React.createElement('div', null,
+            React.createElement('h2', null, `Room ${roomCode}`),
+            React.createElement('p', null, `Current Phase: `, React.createElement('b', null, phase)),
+            phase === 'POST_VOTE' && React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Start Next Round'),
+            React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
+              React.createElement('div', {id: 'qr'})
+            ),
+            React.createElement('h3', null, 'Players'),
+            Object.values(players).map(p => React.createElement('div', {key: p.id},
+              React.createElement('h4', null, p.name),
+              React.createElement('ul', null,
+                Object.entries(p.character.stats).map(([stat, value]) =>
+                  React.createElement('li', {key: stat}, `${stat}: ${value}`)
+                )
+              ),
+              React.createElement('h5', null, 'Inventory'),
+              React.createElement('ul', null,
+                p.character.inventory.length > 0
+                  ? p.character.inventory.map((item, i) =>
+                      React.createElement('li', {key: i}, item)
+                    )
+                  : React.createElement('li', null, 'Empty')
+              )
+            )),
+            React.createElement('h3', null, 'Story'),
+            React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+            React.createElement('h3', null, 'Prompt'),
+            React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
+            React.createElement('h3', null, 'Player Actions'),
+            actions.map((action, i) =>
+              React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
+                `* ${action.text} (${votes[i] || 0} votes)`
+              )
+            ),
+            winningAction && React.createElement('div', {style: {marginTop: '1em', fontWeight: 'bold', color: 'green'}},
+              `Winning Action: ${winningAction.text}`
+            )
+          );
+        }
+        switch (creationStep) {
+          case 'start':
+            return React.createElement('div', null,
+              React.createElement('div', {style: {marginBottom: '1em'}},
+                React.createElement('label', {htmlFor: 'worldSel', style: {fontWeight: 'bold'}}, 'World: '),
+                React.createElement('select', {
+                  id: 'worldSel', value: selectedWorld,
+                  onChange: e => setSelectedWorld(e.target.value),
+                  style: {fontSize: '1em', marginRight: '1em'}
+                },
+                  worlds.map(w => React.createElement('option', {key: w.name, value: w.name}, w.name))
+                ),
+                React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
+              ),
+              worldObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, worldObj.description),
+              React.createElement('div', {style: {marginTop: '1em', textAlign: 'center'}},
+                React.createElement('button', {onClick: () => setCreationStep('details'), style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Create New World')
+              )
+            );
+          case 'details':
+            return React.createElement(WorldDetailsEditor, {
+              aiSettings,
+              onSave: (w) => {
+                saveWorld(w);
+                setSelectedWorld(w.name);
+                setCreationStep('image');
+              },
+              onCancel: () => setCreationStep('start')
+            });
+          case 'image':
+            return React.createElement('div', null,
+              React.createElement('h2', null, 'World Image'),
+              worldObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, worldObj.description),
+              worldImage && React.createElement('img', {src: worldImage, style: {maxWidth: '100%', borderRadius: '8px'}}),
+              React.createElement('div', {style: {marginTop: '1em', textAlign: 'center'}},
+                React.createElement('button', {onClick: generateImage, style: {fontSize: '1em', padding: '0.5em 1em', marginRight: '1em'}}, 'Generate Image'),
+                React.createElement('button', {onClick: () => setCreationStep('done'), style: {fontSize: '1em', padding: '0.5em 1em'}}, 'Skip')
+              )
+            );
+          case 'done':
+            return React.createElement('div', null,
+              React.createElement('h2', null, 'Ready to Play'),
+              worldObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, worldObj.description),
+              worldImage && React.createElement('img', {src: worldImage, style: {maxWidth: '100%', borderRadius: '8px'}}),
+              React.createElement('div', {style: {marginTop: '1em', textAlign: 'center'}},
+                React.createElement('button', {onClick: createRoom, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Create Game World')
+              )
+            );
+          default:
+            return React.createElement('div', null, 'Something went wrong.');
+        }
+      };
+
       return React.createElement('div', null,
         React.createElement('h1', null, 'DM Screen'),
-        showSettings
-          ? React.createElement(SettingsModal, {
-              worlds, editWorld, aiSettings,
-              onClose: closeSettings,
-              onEdit: startEdit,
-              onSave: saveWorld,
-              onDelete: deleteWorld,
-              onAiSettingsChange: handleAiSettingsChange
-            })
-          : !roomCode
-            ? React.createElement('div', null,
-                React.createElement('div', {style: {marginBottom: '1em'}},
-                  React.createElement('label', {htmlFor: 'worldSel', style: {fontWeight: 'bold'}}, 'World: '),
-                  React.createElement('select', {
-                    id: 'worldSel', value: selectedWorld,
-                    onChange: e => setSelectedWorld(e.target.value),
-                    style: {fontSize: '1em', marginRight: '1em'}
-                  },
-                    worlds.map(w => React.createElement('option', {key: w.name, value: w.name}, w.name))
-                  ),
-                  React.createElement('button', {onClick: openSettings, style: {float: 'right'}}, '⚙️ Settings')
-                ),
-                worldObj && React.createElement('div', {style: {marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, worldObj.description),
-                worldImage && React.createElement('img', {src: worldImage, style: {maxWidth: '100%', borderRadius: '8px'}}),
-                React.createElement('div', {style: {marginTop: '1em', textAlign: 'center'}},
-                  React.createElement('button', {onClick: generateImage, style: {fontSize: '1em', padding: '0.5em 1em', marginRight: '1em'}}, 'Generate Image'),
-                  React.createElement('button', {onClick: createRoom, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Create Game World')
-                )
-              )
-            : React.createElement('div', null,
-                React.createElement('h2', null, `Room ${roomCode}`),
-                React.createElement('p', null, `Current Phase: `, React.createElement('b', null, phase)),
-                phase === 'POST_VOTE' && React.createElement('button', {onClick: nextStep, style: {fontSize: '1.2em', padding: '0.7em 2em'}}, 'Start Next Round'),
-                React.createElement('a', {href: `${location.origin}/player.html?code=${roomCode}`, target: '_blank'},
-                  React.createElement('div', {id: 'qr'})
-                ),
-                React.createElement('h3', null, 'Players'),
-                Object.values(players).map(p => React.createElement('div', {key: p.id},
-                  React.createElement('h4', null, p.name),
-                  React.createElement('ul', null,
-                    Object.entries(p.character.stats).map(([stat, value]) =>
-                      React.createElement('li', {key: stat}, `${stat}: ${value}`)
-                    )
-                  ),
-                  React.createElement('h5', null, 'Inventory'),
-                  React.createElement('ul', null,
-                    p.character.inventory.length > 0
-                      ? p.character.inventory.map((item, i) =>
-                          React.createElement('li', {key: i}, item)
-                        )
-                      : React.createElement('li', null, 'Empty')
-                  )
-                )),
-                React.createElement('h3', null, 'Story'),
-                React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
-                React.createElement('h3', null, 'Prompt'),
-                React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
-                React.createElement('h3', null, 'Player Actions'),
-                actions.map((action, i) =>
-                  React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
-                    `* ${action.text} (${votes[i] || 0} votes)`
-                  )
-                ),
-                winningAction && React.createElement('div', {style: {marginTop: '1em', fontWeight: 'bold', color: 'green'}},
-                  `Winning Action: ${winningAction.text}`
-                )
-              )
+        mainContent()
       );
     }
 
-    // Settings modal component
-    function SettingsModal({worlds, editWorld, aiSettings, onClose, onEdit, onSave, onDelete, onAiSettingsChange}) {
+    function WorldDetailsEditor({ aiSettings, onSave, onCancel, editWorld }) {
       const [name, setName] = React.useState(editWorld ? editWorld.name : '');
       const [description, setDescription] = React.useState(editWorld ? editWorld.description : '');
       const [genre, setGenre] = React.useState(editWorld ? editWorld.genre : '');
       const [artStyle, setArtStyle] = React.useState(editWorld ? editWorld.artStyle : '');
       const [gameMechanics, setGameMechanics] = React.useState(editWorld ? editWorld.gameMechanics : '');
       const [winLossConditions, setWinLossConditions] = React.useState(editWorld ? editWorld.winLossConditions : '');
-      const [provider, setProvider] = React.useState(aiSettings.provider);
-      const [apiKey, setApiKey] = React.useState(aiSettings.apiKey);
       const [isAutocompleting, setIsAutocompleting] = React.useState(false);
 
       async function handleAutoComplete() {
@@ -278,6 +315,69 @@
             setIsAutocompleting(false);
         }
       }
+
+      return React.createElement('div', null,
+        React.createElement('h2', null, editWorld ? 'Edit World' : 'Create New World'),
+        React.createElement('div', null,
+          React.createElement('label', null, 'Name: '),
+          React.createElement('input', {
+            value: name, onChange: e => setName(e.target.value),
+            style: {width: '90%'}
+          })
+        ),
+        React.createElement('div', null,
+          React.createElement('label', null, 'Description: '),
+          React.createElement('textarea', {
+            value: description, onChange: e => setDescription(e.target.value),
+            rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
+          }),
+          React.createElement('button', {onClick: handleAutoComplete, style: {marginLeft: '1em'}, disabled: isAutocompleting}, isAutocompleting ? 'Loading...' : 'Auto-complete')
+        ),
+        React.createElement('details', null,
+          React.createElement('summary', null, 'Advanced Options'),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Genre: '),
+            React.createElement('input', {
+              value: genre, onChange: e => setGenre(e.target.value),
+              style: {width: '90%'}
+            })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Art Style: '),
+            React.createElement('input', {
+              value: artStyle, onChange: e => setArtStyle(e.target.value),
+              style: {width: '90%'}
+            })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Game Mechanics: '),
+            React.createElement('textarea', {
+              value: gameMechanics, onChange: e => setGameMechanics(e.target.value),
+              rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
+            })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', null, 'Win/Loss Conditions: '),
+            React.createElement('textarea', {
+              value: winLossConditions, onChange: e => setWinLossConditions(e.target.value),
+              rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
+            })
+          )
+        ),
+        React.createElement('div', {style: {marginTop: '1em'}},
+          React.createElement('button', {
+            onClick: () => name && description && onSave({name, description, genre, artStyle, gameMechanics, winLossConditions}),
+            style: {marginRight: '1em'}
+          }, 'Save World'),
+          React.createElement('button', {onClick: onCancel}, 'Cancel')
+        )
+      );
+    }
+
+    // Settings modal component
+    function SettingsModal({worlds, editWorld, aiSettings, onClose, onEdit, onSave, onDelete, onAiSettingsChange}) {
+      const [provider, setProvider] = React.useState(aiSettings.provider);
+      const [apiKey, setApiKey] = React.useState(aiSettings.apiKey);
 
       function handleSaveAi() {
         onAiSettingsChange({ provider, apiKey });
@@ -321,67 +421,6 @@
 
           React.createElement('hr'),
 
-          React.createElement('h2', null, editWorld ? 'Edit World' : 'Add World'),
-          React.createElement('div', null,
-            React.createElement('label', null, 'Name: '),
-            React.createElement('input', {
-              value: name, onChange: e => setName(e.target.value),
-              style: {width: '90%'}
-            })
-          ),
-          React.createElement('div', null,
-            React.createElement('label', null, 'Description: '),
-            React.createElement('textarea', {
-              value: description, onChange: e => setDescription(e.target.value),
-              rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
-            }),
-            React.createElement('button', {onClick: handleAutoComplete, style: {marginLeft: '1em'}, disabled: isAutocompleting}, isAutocompleting ? 'Loading...' : 'Auto-complete')
-          ),
-
-          React.createElement('details', null,
-            React.createElement('summary', null, 'Advanced Options'),
-            React.createElement('div', null,
-              React.createElement('label', null, 'Genre: '),
-              React.createElement('input', {
-                value: genre, onChange: e => setGenre(e.target.value),
-                style: {width: '90%'}
-              })
-            ),
-            React.createElement('div', null,
-              React.createElement('label', null, 'Art Style: '),
-              React.createElement('input', {
-                value: artStyle, onChange: e => setArtStyle(e.target.value),
-                style: {width: '90%'}
-              })
-            ),
-            React.createElement('div', null,
-              React.createElement('label', null, 'Game Mechanics: '),
-              React.createElement('textarea', {
-                value: gameMechanics, onChange: e => setGameMechanics(e.target.value),
-                rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
-              })
-            ),
-            React.createElement('div', null,
-              React.createElement('label', null, 'Win/Loss Conditions: '),
-              React.createElement('textarea', {
-                value: winLossConditions, onChange: e => setWinLossConditions(e.target.value),
-                rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
-              })
-            )
-          ),
-
-          React.createElement('div', {style: {marginTop: '1em'}},
-            React.createElement('button', {
-              onClick: () => name && description && onSave({name, description, genre, artStyle, gameMechanics, winLossConditions}),
-              style: {marginRight: '1em'}
-            }, 'Save World'),
-            editWorld && React.createElement('button', {
-              onClick: () => onDelete({name, description}),
-              style: {marginRight: '1em', background: '#c44'}
-            }, 'Delete'),
-            React.createElement('button', {onClick: onClose}, 'Cancel')
-          ),
-          React.createElement('hr'),
           React.createElement('h3', null, 'All Worlds'),
           ...worlds.map(w => [
             React.createElement('div', {
