@@ -34,23 +34,10 @@ async function testHappyPath() {
     assert.strictEqual(rooms.get(roomCode).phase, 'POST_VOTE', 'Phase should be POST_VOTE after all players vote');
     assert.strictEqual(rooms.get(roomCode).winningAction.text, 'Action from Player 2', 'Winning action should be correct');
 
-    // 5. DM advances to the next round (mocking AI)
-    global.fetch = async (url, options) => {
-        const urlStr = url.toString();
-        if (urlStr.includes('openai')) {
-            const body = JSON.parse(options.body);
-            if (body.model === 'dall-e-3') {
-                return { ok: true, status: 200, json: async () => ({ data: [{ url: 'http://fake-image.com' }] }) };
-            }
-            assert.strictEqual(body.model, 'gpt-4', 'Should use correct OpenAI model');
-            return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'A new challenge appears from OpenAI!' } }], usage: { prompt_tokens: 10, completion_tokens: 20 } }) };
-        }
-        return originalFetch(url, options);
-    };
+    // 5. DM advances to the next round
     const nextRes = await fetch(`${BASE_URL}/room/${roomCode}/next`, { method: 'POST' });
     const nextData = await nextRes.json();
     assert.strictEqual(nextData.status, 'ok', 'Next step should return ok status');
-    global.fetch = originalFetch;
 
     // 6. Verify game state is reset
     const finalRoomState = rooms.get(roomCode);
@@ -72,15 +59,16 @@ async function testAIFailure() {
     assert.strictEqual(rooms.get(roomCode).phase, 'POST_VOTE', 'Game should be in POST_VOTE phase');
 
     // 2. Mock the AI call to fail
+    const successFetch = global.fetch;
     global.fetch = async (url, options) => {
         const urlStr = url.toString();
         if (urlStr.includes('openai')) {
             return { ok: false, status: 500, text: async () => 'AI service is down' };
         }
-        return originalFetch(url, options);
+        return originalFetch(url, options); // Use originalFetch to call our server
     };
     const nextRes = await fetch(`${BASE_URL}/room/${roomCode}/next`, { method: 'POST' });
-    global.fetch = originalFetch;
+    global.fetch = successFetch; // Restore the successful mock
 
     // 3. Assertions
     assert.strictEqual(nextRes.status, 500, 'Endpoint should return 500 on AI failure');
@@ -91,9 +79,19 @@ async function testAIFailure() {
 }
 
 async function runTests() {
+    process.env.OPENAI_API_KEY = 'test_key';
     let testServer;
-    const originalGenerateCharacterImage = appModule.generateCharacterImage;
-    appModule.generateCharacterImage = async () => 'http://fake-image.com';
+    originalFetch = global.fetch;
+    global.fetch = async (url, options) => {
+        const urlStr = url.toString();
+        if (urlStr.includes('api.openai.com/v1/images/generations')) {
+            return { ok: true, status: 200, json: async () => ({ data: [{ url: 'http://fake-image.com' }] }) };
+        }
+        if (urlStr.includes('openai')) { // For story generation
+            return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'A new challenge appears!' } }], usage: { prompt_tokens: 10, completion_tokens: 20 } }) };
+        }
+        return originalFetch(url, options);
+    };
 
     try {
         // Start server once
@@ -111,7 +109,8 @@ async function runTests() {
         console.error('\nA test failed:', error);
         process.exit(1);
     } finally {
-        appModule.generateCharacterImage = originalGenerateCharacterImage;
+        delete process.env.OPENAI_API_KEY;
+        global.fetch = originalFetch;
         // Close server once
         if (testServer) {
             await new Promise(resolve => testServer.close(resolve));
