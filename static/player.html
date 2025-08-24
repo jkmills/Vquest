@@ -24,6 +24,9 @@
       const [actions, setActions] = React.useState([]);
       const [votes, setVotes] = React.useState([]);
       const [hasVoted, setHasVoted] = React.useState(false);
+      const [phase, setPhase] = React.useState('SUBMITTING');
+      const [submissionStatus, setSubmissionStatus] = React.useState('');
+      const [winningAction, setWinningAction] = React.useState(null);
       const wsRef = React.useRef(null);
 
       const join = async () => {
@@ -38,6 +41,7 @@
             setPlayer(data);
             setContext(data.context);
             setPrompt(data.prompt);
+            setPhase(data.phase);
           } else {
             console.error('Failed to join room:', data);
           }
@@ -55,11 +59,24 @@
             const data = JSON.parse(e.data);
             if (data.context) setContext(data.context);
             if (data.prompt) setPrompt(data.prompt);
+            if (data.phase) setPhase(data.phase);
+            if (data.winningAction) setWinningAction(data.winningAction);
+
+            if (data.phase === 'SUBMITTING') {
+              // Reset for new round
+              setHasVoted(false);
+              setWinningAction(null);
+              setVotes([]);
+              setActions([]);
+              setSubmissionStatus('');
+            }
+
+            if (data.submitted_count !== undefined) {
+                setSubmissionStatus(`(${data.submitted_count}/${data.players_count} submitted)`);
+            }
+
             if (data.actions) {
               setActions(data.actions);
-              if (data.actions.length === 0) {
-                setHasVoted(false);
-              }
             }
             if (data.votes) setVotes(data.votes);
           } catch (error) {
@@ -121,15 +138,31 @@
               React.createElement('hr', null),
               React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
               React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
-              React.createElement('div', null,
+
+              phase === 'SUBMITTING' && React.createElement('div', null,
+                React.createElement('h2', null, `Submit your action ${submissionStatus}`),
                 React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
                 React.createElement('button', {onClick: sendAction}, 'Send')
               ),
-              React.createElement('h2', null, 'Actions'),
-              actions.map((action, i) =>
-                React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
-                  React.createElement('button', {onClick: () => vote(i), disabled: hasVoted}, 'Vote'),
-                  ` ${action.text} (${votes[i] || 0} votes)`
+
+              phase === 'VOTING' && React.createElement('div', null,
+                React.createElement('h2', null, 'Vote for the best action'),
+                actions.map((action, i) =>
+                  React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
+                    React.createElement('button', {onClick: () => vote(i), disabled: hasVoted}, 'Vote'),
+                    ` ${action.text} (${votes[i] || 0} votes)`
+                  )
+                )
+              ),
+
+              phase === 'POST_VOTE' && React.createElement('div', null,
+                React.createElement('h2', null, 'Voting Complete!'),
+                winningAction && React.createElement('p', {style: {fontWeight: 'bold'}}, `Winning action: ${winningAction.text}`),
+                React.createElement('h3', null, 'Final Results:'),
+                actions.map((action, i) =>
+                  React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
+                    `${action.text} (${votes[i] || 0} votes)`
+                  )
                 )
               )
             )
