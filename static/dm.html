@@ -250,15 +250,33 @@
       const [winLossConditions, setWinLossConditions] = React.useState(editWorld ? editWorld.winLossConditions : '');
       const [provider, setProvider] = React.useState(aiSettings.provider);
       const [apiKey, setApiKey] = React.useState(aiSettings.apiKey);
+      const [isAutocompleting, setIsAutocompleting] = React.useState(false);
 
       async function handleAutoComplete() {
-        const res = await fetch('/world/autocomplete', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ description })
-        });
-        const data = await res.json();
-        setDescription(data.description);
+        setIsAutocompleting(true);
+        const world = { name, description, genre, artStyle, gameMechanics, winLossConditions };
+        try {
+            const res = await fetch('/world/autocomplete', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ world, ai_settings: aiSettings })
+            });
+            const data = await res.json();
+            if (res.ok && data) {
+                setName(data.name || name);
+                setDescription(data.description || description);
+                setGenre(data.genre || genre);
+                setArtStyle(data.artStyle || artStyle);
+                setGameMechanics(data.gameMechanics || gameMechanics);
+                setWinLossConditions(data.winLossConditions || winLossConditions);
+            } else {
+                console.error("Autocomplete failed", data);
+            }
+        } catch (error) {
+            console.error("Autocomplete request failed", error);
+        } finally {
+            setIsAutocompleting(false);
+        }
       }
 
       function handleSaveAi() {
@@ -317,7 +335,7 @@
               value: description, onChange: e => setDescription(e.target.value),
               rows: 3, style: {width: '90%', fontFamily: 'inherit', fontSize: '1em'}
             }),
-            React.createElement('button', {onClick: handleAutoComplete, style: {marginLeft: '1em'}}, 'Auto-complete')
+            React.createElement('button', {onClick: handleAutoComplete, style: {marginLeft: '1em'}, disabled: isAutocompleting}, isAutocompleting ? 'Loading...' : 'Auto-complete')
           ),
 
           React.createElement('details', null,

@@ -52,13 +52,13 @@ function createRoom(world, prompt, ai_settings) {
 }
 
 app.post('/world/autocomplete', async (req, res) => {
-  const { description } = req.body;
-  const prompt = `Expand this game world description: "${description}"`;
-  // This is a simplified example. In a real app, you'd get the AI settings from the user.
-  const ai_settings = { provider: 'openai', apiKey: process.env.OPENAI_API_KEY };
+  const { world, ai_settings } = req.body;
+  if (!world || !ai_settings) {
+    return res.status(400).json({ detail: 'Missing world or ai_settings in request body' });
+  }
   try {
-    const new_description = await generate_story({ quest_context: '', context: '', ai_settings }, prompt);
-    res.json({ description: new_description });
+    const new_world = await generate_world_details(world, ai_settings);
+    res.json(new_world);
   } catch (error) {
     console.error('Error in /world/autocomplete:', error);
     res.status(500).json({ detail: 'An error occurred during auto-complete.', error: error.message });
@@ -208,6 +208,93 @@ app.post('/room/:code/vote', (req, res) => {
 
   res.json({ status: 'ok' });
 });
+
+async function generate_world_details(world, ai_settings) {
+  const { provider, apiKey } = ai_settings;
+  const prompt = `
+    Based on the following partial game world details, expand and fill in the rest of the fields.
+    The output should be a single JSON object.
+
+    Partial details:
+    ${JSON.stringify(world, null, 2)}
+
+    Please generate a complete world object with the following fields: "name", "description", "genre", "artStyle", "gameMechanics", "winLossConditions".
+    If a value is already provided for a field, you can improve it, but you should not override it completely.
+  `;
+
+  let url, options;
+  const model = provider === 'groq' ? "llama3-8b-8192" : "gpt-4";
+
+  const body = {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.7,
+    max_tokens: 500,
+    response_format: { "type": "json_object" }
+  };
+
+  switch (provider) {
+    case 'openai':
+      url = 'https://api.openai.com/v1/chat/completions';
+      options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      };
+      break;
+    case 'groq':
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+       options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      };
+      break;
+    case 'openrouter':
+      url = 'https://openrouter.ai/api/v1/chat/completions';
+      options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000', // Required by OpenRouter
+          'X-Title': 'VQuest'
+        },
+        body: JSON.stringify({ ...body, model: 'openai/gpt-4' })
+      };
+      break;
+    default:
+      throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`${provider} API request failed with status ${response.status}:`, errorBody);
+    throw new Error(`AI service failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const generated_text = data.choices[0]?.message?.content;
+
+  if (!generated_text) {
+    console.error('AI service response did not contain expected text.', JSON.stringify(data, null, 2));
+    throw new Error('AI service response was invalid.');
+  }
+
+  try {
+    return JSON.parse(generated_text);
+  } catch (e) {
+    console.error('Failed to parse AI response as JSON:', generated_text);
+    throw new Error('AI service returned malformed JSON.');
+  }
+}
 
 async function generate_story(room, action) {
   const { world, context: story, ai_settings } = room;
