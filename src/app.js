@@ -229,8 +229,7 @@ async function generate_world_details(world, ai_settings) {
     model,
     messages: [{ role: "user", content: prompt }],
     temperature: 0.7,
-    max_tokens: 500,
-    response_format: { "type": "json_object" }
+    max_tokens: 500
   };
 
   switch (provider) {
