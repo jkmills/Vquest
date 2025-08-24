@@ -4,6 +4,7 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 const fetch = require('node-fetch');
 const multer = require('multer');
+const { get_encoding } = require('js-tiktoken');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
@@ -35,8 +36,47 @@ function generateCode(length = 5) {
   return code;
 }
 
-function logAIInteraction(functionName, data) {
-  console.log(`AI Interaction in ${functionName}:`, JSON.stringify(data, null, 2));
+const PRICING = {
+  'dall-e-3': {
+    'standard': 0.04, // per image
+  },
+  'gpt-4': {
+    'input': 0.03 / 1000, // per 1K tokens
+    'output': 0.06 / 1000, // per 1K tokens
+  },
+  'llama3-8b-8192': {
+    'input': 0.00005 / 1000, // per 1K tokens
+    'output': 0.00008 / 1000, // per 1K tokens
+  }
+};
+
+function estimateCost(model, promptTokens, completionTokens) {
+  if (!PRICING[model]) {
+    return 0;
+  }
+
+  if (model === 'dall-e-3') {
+    return PRICING[model]['standard'];
+  }
+
+  const inputCost = promptTokens * PRICING[model]['input'];
+  const outputCost = completionTokens * PRICING[model]['output'];
+  return inputCost + outputCost;
+}
+
+function logAIInteraction(functionName, details) {
+  const { prompt, provider, model, response, error, cost, total_cost } = details;
+  let logMessage = `[AI Interaction: ${functionName}]`;
+
+  if (provider) logMessage += `\n  Provider: ${provider}`;
+  if (model) logMessage += `\n  Model: ${model}`;
+  if (prompt) logMessage += `\n  Prompt: ${prompt.substring(0, 100)}...`;
+  if (cost) logMessage += `\n  Estimated Cost: $${cost.toFixed(6)}`;
+  if (total_cost) logMessage += `\n  Total World Cost: $${total_cost.toFixed(6)}`;
+  if (response) logMessage += `\n  Response: ${JSON.stringify(response).substring(0, 100)}...`;
+  if (error) logMessage += `\n  Error: ${error}`;
+
+  console.log(logMessage);
 }
 
 function createRoom(world, prompt, ai_settings) {
@@ -53,6 +93,7 @@ function createRoom(world, prompt, ai_settings) {
     phase: 'SUBMITTING', // Initial phase
     submitted_players: new Set(),
     winningAction: null,
+    total_cost: 0,
   };
   rooms.set(code, room);
   return room;
@@ -79,6 +120,7 @@ app.post('/world/image', async (req, res) => {
   }
   const prompt = `A landscape in the style of ${artStyle}, representing a world with the following description: "${description}"`;
   const url = 'https://api.openai.com/v1/images/generations';
+  const model = 'dall-e-3';
   const options = {
     method: 'POST',
     headers: {
@@ -86,7 +128,7 @@ app.post('/world/image', async (req, res) => {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model,
       prompt,
       n: 1,
       size: '1024x1024'
@@ -94,16 +136,17 @@ app.post('/world/image', async (req, res) => {
   };
 
   try {
-    logAIInteraction('/world/image', { prompt });
+    const cost = estimateCost(model);
+    logAIInteraction('/world/image', { prompt, model, cost });
     const response = await fetch(url, options);
     if (!response.ok) {
       const errorBody = await response.text();
-      logAIInteraction('/world/image', { error: errorBody });
+      logAIInteraction('/world/image', { error: errorBody, model });
       console.error('OpenAI Image API request failed:', errorBody);
       throw new Error(`AI image service failed with status ${response.status}`);
     }
     const data = await response.json();
-    logAIInteraction('/world/image', { response: data });
+    logAIInteraction('/world/image', { response: data, model });
     res.json({ imageUrl: data.data[0].url });
   } catch (error) {
     console.error('Error in /world/image:', error);
@@ -130,6 +173,7 @@ async function generateCharacterImage(name, race, imageFile) {
   }
 
   const url = 'https://api.openai.com/v1/images/generations';
+  const model = 'dall-e-3';
   const options = {
     method: 'POST',
     headers: {
@@ -137,24 +181,25 @@ async function generateCharacterImage(name, race, imageFile) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model,
       prompt,
       n: 1,
       size: '1024x1024'
     })
   };
 
-  logAIInteraction('generateCharacterImage', { prompt });
+  const cost = estimateCost(model);
+  logAIInteraction('generateCharacterImage', { prompt, model, cost });
 
   const response = await fetch(url, options);
   if (!response.ok) {
     const errorBody = await response.text();
-    logAIInteraction('generateCharacterImage', { error: errorBody });
+    logAIInteraction('generateCharacterImage', { error: errorBody, model });
     console.error('OpenAI Image API request failed:', errorBody);
     throw new Error(`AI image service failed with status ${response.status}`);
   }
   const data = await response.json();
-  logAIInteraction('generateCharacterImage', { response: data });
+  logAIInteraction('generateCharacterImage', { response: data, model });
   return data.data[0].url;
 }
 
@@ -340,17 +385,22 @@ async function generate_world_details(world, ai_settings) {
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
+  const enc = get_encoding('cl100k_base');
+  const promptTokens = enc.encode(prompt).length;
+
   logAIInteraction('generate_world_details', { provider, model, prompt });
   const response = await fetch(url, options);
   if (!response.ok) {
     const errorBody = await response.text();
-    logAIInteraction('generate_world_details', { error: errorBody });
+    logAIInteraction('generate_world_details', { error: errorBody, provider, model });
     console.error(`${provider} API request failed with status ${response.status}:`, errorBody);
     throw new Error(`AI service failed with status ${response.status}`);
   }
 
   const data = await response.json();
-  logAIInteraction('generate_world_details', { response: data });
+  const completionTokens = data.usage.completion_tokens;
+  const cost = estimateCost(model, promptTokens, completionTokens);
+  logAIInteraction('generate_world_details', { response: data, cost, provider, model });
   const generated_text = data.choices[0]?.message?.content;
 
   if (!generated_text) {
@@ -440,17 +490,24 @@ async function generate_story(room, action) {
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
-  logAIInteraction('generate_story', { provider, prompt });
+  const enc = get_encoding('cl100k_base');
+  const promptTokens = enc.encode(prompt).length;
+  const model = room.ai_settings.provider === 'groq' ? 'llama3-8b-8192' : 'gpt-4';
+
+  logAIInteraction('generate_story', { provider, model, prompt });
   const response = await fetch(url, options);
   if (!response.ok) {
     const errorBody = await response.text();
-    logAIInteraction('generate_story', { error: errorBody });
+    logAIInteraction('generate_story', { error: errorBody, provider, model });
     console.error(`${provider} API request failed with status ${response.status}:`, errorBody);
     throw new Error(`AI service failed with status ${response.status}`);
   }
 
   const data = await response.json();
-  logAIInteraction('generate_story', { response: data });
+  const completionTokens = data.usage.completion_tokens;
+  const cost = estimateCost(model, promptTokens, completionTokens);
+  room.total_cost += cost;
+  logAIInteraction('generate_story', { response: data, cost, total_cost: room.total_cost, provider, model });
   const generated_text = data.choices[0]?.message?.content;
 
   if (!generated_text) {

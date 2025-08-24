@@ -13,7 +13,7 @@
   </script>
 </head>
 <body>
-  <div id="root" style="max-width: 500px; margin: 2em auto; background: #fffbe6cc; border-radius: 16px; box-shadow: 2px 2px 12px #0003; padding: 2em;"></div>
+  <div id="root" style="max-width: 500px; margin: 0 auto; background: #fffbe6cc; height: 100vh; display: flex; flex-direction: column;"></div>
   <script>
     function App() {
       const [name, setName] = React.useState('');
@@ -31,6 +31,13 @@
       const [submissionStatus, setSubmissionStatus] = React.useState('');
       const [winningAction, setWinningAction] = React.useState(null);
       const wsRef = React.useRef(null);
+      const chatContainerRef = React.useRef(null);
+
+      React.useEffect(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, [context]);
 
       const join = async () => {
         setIsLoading(true);
@@ -101,12 +108,15 @@
 
       const sendAction = async () => {
         if (!player) return;
-        const text = document.getElementById('actionText').value;
+        const textEl = document.getElementById('actionText');
+        const text = textEl.value;
+        if (!text) return;
         await fetch(`/room/${code}/action`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({player_id: player.id, text})
         });
+        textEl.value = ''; // Clear input after sending
       };
 
       const vote = async (choice) => {
@@ -119,14 +129,53 @@
         setHasVoted(true);
       };
 
-      return React.createElement('div', null,
-        React.createElement('h1', null, 'Player'),
+      // Define styles outside of render for performance and readability
+      const styles = {
+        playerContainer: {
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          padding: '1em'
+        },
+        characterInfo: {
+          flexShrink: 0
+        },
+        chatContainer: {
+          flexGrow: 1,
+          overflowY: 'auto',
+          border: '1px solid #ccc',
+          borderRadius: '8px',
+          padding: '0.5em',
+          marginBottom: '1em',
+          background: '#fff'
+        },
+        prompt: {
+          marginBottom: '1em',
+          fontWeight: 'bold',
+          flexShrink: 0
+        },
+        actionBar: {
+          flexShrink: 0
+        },
+        actionInput: {
+          width: 'calc(100% - 80px)',
+          padding: '0.5em',
+          marginRight: '1em'
+        },
+        voteButton: {
+            marginRight: '1em',
+            padding: '0.5em 1em'
+        }
+      };
+
+      return React.createElement('div', { style: { height: '100vh', display: 'flex', flexDirection: 'column', padding: '1em', boxSizing: 'border-box' } },
+        React.createElement('h1', { style: { textAlign: 'center', flexShrink: 0 } }, 'Player'),
         !player
-          ? React.createElement('div', null,
+          ? React.createElement('div', { style: { padding: '2em' } },
               React.createElement('h2', null, 'Create Your Character'),
-              React.createElement('div', null,
+              React.createElement('div', { style: { marginBottom: '0.5em' } },
                 'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
-              React.createElement('div', null,
+              React.createElement('div', { style: { marginBottom: '0.5em' } },
                 'Race ',
                 React.createElement('select', {value: race, onChange: e => setRace(e.target.value)},
                   React.createElement('option', {value: 'Human'}, 'Human'),
@@ -136,34 +185,36 @@
                   React.createElement('option', {value: 'Halfling'}, 'Halfling')
                 )
               ),
-              React.createElement('div', null,
+              React.createElement('div', { style: { marginBottom: '0.5em' } },
                 'Appearance (optional) ', React.createElement('input', {type: 'file', onChange: e => setImageFile(e.target.files[0])})
               ),
-              React.createElement('div', null,
+              React.createElement('div', { style: { marginBottom: '1em' } },
                 'Room Code ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
               React.createElement('button', {onClick: join, disabled: isLoading}, isLoading ? 'Creating...' : 'Create Character')
             )
-          : React.createElement('div', null,
-              React.createElement('h2', null, player.name),
-              player.character && React.createElement('div', null,
-                player.character.imageUrl && React.createElement('img', {src: player.character.imageUrl, style: {maxWidth: '100%', borderRadius: '8px'}}),
-                React.createElement('h3', null, 'Stats'),
-                player.character.stats && React.createElement('ul', null,
-                  Object.entries(player.character.stats).map(([stat, value]) =>
-                    React.createElement('li', {key: stat}, `${stat}: ${value}`)
+          : React.createElement('div', { style: styles.playerContainer },
+              React.createElement('details', { style: styles.characterInfo },
+                React.createElement('summary', null, React.createElement('h2', { style: { display: 'inline-block', margin: 0 } }, player.name)),
+                player.character && React.createElement('div', null,
+                  player.character.imageUrl && React.createElement('img', {src: player.character.imageUrl, style: {maxWidth: '100px', borderRadius: '8px'}}),
+                  React.createElement('h3', null, 'Stats'),
+                  player.character.stats && React.createElement('ul', null,
+                    Object.entries(player.character.stats).map(([stat, value]) =>
+                      React.createElement('li', {key: stat}, `${stat}: ${value}`)
+                    )
+                  ),
+                  React.createElement('h3', null, 'Inventory'),
+                  player.character.inventory && React.createElement('ul', null,
+                    player.character.inventory.length > 0
+                      ? player.character.inventory.map((item, i) =>
+                          React.createElement('li', {key: i}, item)
+                        )
+                      : React.createElement('li', null, 'Empty')
                   )
-                ),
-                React.createElement('h3', null, 'Inventory'),
-                player.character.inventory && React.createElement('ul', null,
-                  player.character.inventory.length > 0
-                    ? player.character.inventory.map((item, i) =>
-                        React.createElement('li', {key: i}, item)
-                      )
-                    : React.createElement('li', null, 'Empty')
                 )
               ),
-              React.createElement('hr', null),
-              React.createElement('div', { className: 'chat-container' },
+              React.createElement('hr', { style: { flexShrink: 0 } }),
+              React.createElement('div', { ref: chatContainerRef, style: styles.chatContainer, className: 'chat-container' },
                 context.map((msg, i) =>
                   React.createElement('div', { key: i, className: `chat-bubble ${msg.sender === 'DM' ? 'dm-message' : ''} ${msg.sender === 'Game' ? 'game-message' : ''}` },
                     React.createElement('div', { className: 'sender' }, msg.sender),
@@ -171,25 +222,25 @@
                   )
                 )
               ),
-              React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
+              React.createElement('div', { style: styles.prompt }, prompt),
 
-              phase === 'SUBMITTING' && React.createElement('div', null,
-                React.createElement('h2', null, `Submit your action ${submissionStatus}`),
-                React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
+              phase === 'SUBMITTING' && React.createElement('div', { style: styles.actionBar },
+                React.createElement('h3', { style: { marginTop: 0 } }, `Submit your action ${submissionStatus}`),
+                React.createElement('input', {id: 'actionText', placeholder: 'Your action', style: styles.actionInput }),
                 React.createElement('button', {onClick: sendAction}, 'Send')
               ),
 
-              phase === 'VOTING' && React.createElement('div', null,
-                React.createElement('h2', null, 'Vote for the best action'),
+              phase === 'VOTING' && React.createElement('div', { style: styles.actionBar },
+                React.createElement('h3', { style: { marginTop: 0 } }, 'Vote for the best action'),
                 actions.map((action, i) =>
                   React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
-                    React.createElement('button', {onClick: () => vote(i), disabled: hasVoted}, 'Vote'),
+                    React.createElement('button', {onClick: () => vote(i), disabled: hasVoted, style: styles.voteButton }, 'Vote'),
                     ` ${action.text} (${votes[i] || 0} votes)`
                   )
                 )
               ),
 
-              phase === 'POST_VOTE' && React.createElement('div', null,
+              phase === 'POST_VOTE' && React.createElement('div', { style: styles.actionBar },
                 React.createElement('h2', null, 'Voting Complete!'),
                 winningAction && React.createElement('p', {style: {fontWeight: 'bold'}}, `Winning action: ${winningAction.text}`),
                 React.createElement('h3', null, 'Final Results:'),
