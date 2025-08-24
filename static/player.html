@@ -129,6 +129,12 @@
               setActions(data.actions);
             }
             if (data.votes) setVotes(data.votes);
+            if (data.players && player && data.players[player.id]) {
+                const updatedPlayer = data.players[player.id];
+                if (updatedPlayer.character.imageUrl !== player.character.imageUrl || updatedPlayer.regenerationAttempts !== player.regenerationAttempts) {
+                    setPlayer(prevPlayer => ({...prevPlayer, ...updatedPlayer}));
+                }
+            }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
           }

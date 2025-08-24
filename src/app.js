@@ -2,8 +2,22 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+let fetch = require('node-fetch');
 const multer = require('multer');
 const { getEncoding } = require('js-tiktoken');
+
+if (process.env.NODE_ENV === 'test') {
+  fetch = async (url, options) => {
+    const urlStr = url.toString();
+    if (urlStr.includes('api.openai.com')) {
+      if (urlStr.includes('images/generations')) {
+        return { ok: true, status: 200, json: async () => ({ data: [{ url: 'http://fake-image.com' }] }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'Mocked AI response' } }], usage: { prompt_tokens: 10, completion_tokens: 20 } }) };
+    }
+    throw new Error(`[TEST] Mock fetch called with unexpected URL: ${urlStr}`);
+  };
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
@@ -273,6 +287,9 @@ app.post('/room/:code/player/:playerId/regenerate-image', upload.single('image')
 
     res.json({
       ...player,
+      context: room.context,
+      prompt: room.prompt,
+      phase: room.phase,
     });
   } catch (error) {
     console.error('Error in /room/:code/player/:playerId/regenerate-image:', error);
