@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const fetch = require('node-fetch');
 const multer = require('multer');
 const { getEncoding } = require('js-tiktoken');
 
@@ -162,15 +161,19 @@ app.post('/room', (req, res) => {
   broadcast(room.code, { context: room.context, prompt: room.prompt });
 });
 
-async function generateCharacterImage(name, race, imageFile) {
+async function generateCharacterImage(name, race, imageFile, world) {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('The person who deployed this app has not set the OPENAI_API_KEY environment variable.');
   }
 
-  let prompt = `A fantasy character portrait of a ${race} named ${name}.`;
-  if (imageFile) {
-    prompt += ` Use the uploaded image as inspiration for the character's appearance.`;
+  let prompt = `A fantasy character portrait of a ${race}.`;
+  if (world && world.artStyle) {
+    prompt += ` In the style of ${world.artStyle}.`;
   }
+  if (imageFile) {
+    prompt += ` The character's appearance should be based on the provided image.`;
+  }
+  prompt += ` The image should not contain any text.`
 
   const url = 'https://api.openai.com/v1/images/generations';
   const model = 'dall-e-3';
@@ -213,7 +216,7 @@ app.post('/room/:code/join', upload.single('image'), async (req, res) => {
   const playerId = generateCode(8);
 
   try {
-    const imageUrl = await generateCharacterImage(name, race, imageFile);
+    const imageUrl = await generateCharacterImage(name, race, imageFile, room.world);
     const player = {
       id: playerId,
       name,
@@ -227,6 +230,7 @@ app.post('/room/:code/join', upload.single('image'), async (req, res) => {
         },
         inventory: [],
       },
+      regenerationAttempts: 0,
     };
     room.players.set(playerId, player);
 
@@ -242,6 +246,37 @@ app.post('/room/:code/join', upload.single('image'), async (req, res) => {
   } catch (error) {
     console.error('Error in /room/:code/join:', error);
     res.status(500).json({ detail: 'An error occurred during character creation.', error: error.message });
+  }
+});
+
+app.post('/room/:code/player/:playerId/regenerate-image', upload.single('image'), async (req, res) => {
+  const { code, playerId } = req.params;
+  const room = rooms.get(code);
+  if (!room) return res.status(404).json({ detail: 'Invalid room code' });
+
+  const player = room.players.get(playerId);
+  if (!player) return res.status(404).json({ detail: 'Invalid player ID' });
+
+  if (player.regenerationAttempts >= 3) {
+    return res.status(400).json({ detail: 'You have reached the maximum number of regeneration attempts.' });
+  }
+
+  const imageFile = req.file;
+
+  try {
+    const imageUrl = await generateCharacterImage(player.name, player.character.race, imageFile, room.world);
+    player.character.imageUrl = imageUrl;
+    player.regenerationAttempts++;
+
+    const players_obj = Object.fromEntries(room.players);
+    broadcast(code, { players: players_obj, phase: room.phase });
+
+    res.json({
+      ...player,
+    });
+  } catch (error) {
+    console.error('Error in /room/:code/player/:playerId/regenerate-image:', error);
+    res.status(500).json({ detail: 'An error occurred during image regeneration.', error: error.message });
   }
 });
 

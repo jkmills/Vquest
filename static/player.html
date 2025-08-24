@@ -30,6 +30,8 @@
       const [phase, setPhase] = React.useState('SUBMITTING');
       const [submissionStatus, setSubmissionStatus] = React.useState('');
       const [winningAction, setWinningAction] = React.useState(null);
+      const [regenerationCount, setRegenerationCount] = React.useState(0);
+      const [isRegenerating, setIsRegenerating] = React.useState(false);
       const wsRef = React.useRef(null);
       const chatContainerRef = React.useRef(null);
 
@@ -59,6 +61,7 @@
             setContext(data.context);
             setPrompt(data.prompt);
             setPhase(data.phase);
+            setRegenerationCount(data.regenerationAttempts || 0);
           } else {
             console.error('Failed to join room:', data);
           }
@@ -66,6 +69,34 @@
           console.error('Error joining room:', error);
         } finally {
           setIsLoading(false);
+        }
+      };
+
+      const regenerateImage = async () => {
+        if (!player || isRegenerating) return;
+        setIsRegenerating(true);
+
+        const formData = new FormData();
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
+
+        try {
+          const res = await fetch(`/room/${code}/player/${player.id}/regenerate-image`, {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await res.json();
+          if (data.id) {
+            setPlayer(data);
+            setRegenerationCount(data.regenerationAttempts);
+          } else {
+            console.error('Failed to regenerate image:', data);
+          }
+        } catch (error) {
+          console.error('Error regenerating image:', error);
+        } finally {
+          setIsRegenerating(false);
         }
       };
 
@@ -196,7 +227,12 @@
               React.createElement('details', { style: styles.characterInfo },
                 React.createElement('summary', null, React.createElement('h2', { style: { display: 'inline-block', margin: 0 } }, player.name)),
                 player.character && React.createElement('div', null,
-                  player.character.imageUrl && React.createElement('img', {src: player.character.imageUrl, style: {maxWidth: '100px', borderRadius: '8px'}}),
+                  player.character.imageUrl && React.createElement('div', null,
+                    React.createElement('img', {src: player.character.imageUrl, style: {maxWidth: '100px', borderRadius: '8px'}}),
+                    React.createElement('button', {onClick: regenerateImage, disabled: isRegenerating || regenerationCount >= 3, style: {marginLeft: '1em'}},
+                      isRegenerating ? 'Regenerating...' : `Regenerate Image (${regenerationCount}/3)`
+                    )
+                  ),
                   React.createElement('h3', null, 'Stats'),
                   player.character.stats && React.createElement('ul', null,
                     Object.entries(player.character.stats).map(([stat, value]) =>

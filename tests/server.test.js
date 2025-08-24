@@ -104,5 +104,68 @@ test('POST /world/autocomplete should return 500 if api key is missing', async (
     });
 });
 
+test('POST /room/:code/player/:playerId/regenerate-image should regenerate an image', async (t) => {
+    const { app, rooms, createRoom } = require('../src/app.js');
+    const request = require('supertest');
+
+    // 1. Setup
+    const room = createRoom({ description: 'test world', artStyle: 'test style' }, 'test prompt');
+    const playerId = 'testplayer';
+    const player = {
+        id: playerId,
+        name: 'Test Player',
+        character: {
+            race: 'Human',
+            imageUrl: 'initial_url',
+        },
+        regenerationAttempts: 0,
+    };
+    room.players.set(playerId, player);
+    rooms.set(room.code, room);
+
+    // Mock fetch
+    const originalFetch = global.fetch;
+    let fetchCallCount = 0;
+    global.fetch = async (url, options) => {
+        fetchCallCount++;
+        return {
+            ok: true,
+            json: async () => ({
+                data: [{ url: `new_image_url_${fetchCallCount}` }]
+            })
+        };
+    };
+
+    // 2. First regeneration
+    let response = await request(app)
+        .post(`/room/${room.code}/player/${playerId}/regenerate-image`);
+
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(response.body.character.imageUrl, 'new_image_url_1');
+    assert.strictEqual(response.body.regenerationAttempts, 1);
+    assert.strictEqual(room.players.get(playerId).character.imageUrl, 'new_image_url_1');
+    assert.strictEqual(room.players.get(playerId).regenerationAttempts, 1);
+
+    // 3. Second and third regenerations
+    await request(app).post(`/room/${room.code}/player/${playerId}/regenerate-image`);
+    await request(app).post(`/room/${room.code}/player/${playerId}/regenerate-image`);
+
+    assert.strictEqual(room.players.get(playerId).regenerationAttempts, 3);
+    assert.strictEqual(room.players.get(playerId).character.imageUrl, 'new_image_url_3');
+
+
+    // 4. Fourth regeneration should fail
+    response = await request(app)
+        .post(`/room/${room.code}/player/${playerId}/regenerate-image`);
+
+    assert.strictEqual(response.status, 400);
+    assert.deepStrictEqual(response.body, {
+        detail: 'You have reached the maximum number of regeneration attempts.'
+    });
+
+    // Restore original fetch
+    global.fetch = originalFetch;
+});
+
 // Make sure to close the server after all tests
 test.after(() => server.close());
