@@ -157,7 +157,8 @@
       function saveWorld(w) {
         let newWorlds = worlds.slice();
         if (editWorld) {
-          newWorlds = newWorlds.map(x => x.id === editWorld.id ? w : x);
+          const updatedWorld = { ...w, id: editWorld.id };
+          newWorlds = newWorlds.map(x => x.id === editWorld.id ? updatedWorld : x);
         } else {
           const newWorld = { ...w, id: `world-${Date.now()}` };
           newWorlds.push(newWorld);
@@ -350,9 +351,15 @@
                 setWinLossConditions(data.winLossConditions || winLossConditions);
             } else {
                 console.error("Autocomplete failed", data);
+                let errorMessage = `Autocomplete failed: ${data.detail || 'Unknown error'}`;
+                if (data.error && data.error.includes('401')) {
+                    errorMessage = 'Autocomplete failed: AI service returned a 401 Unauthorized error. Please check if your API key is correct in the settings.';
+                }
+                alert(errorMessage);
             }
         } catch (error) {
             console.error("Autocomplete request failed", error);
+            alert(`An unexpected error occurred: ${error.message}`);
         } finally {
             setIsAutocompleting(false);
         }
