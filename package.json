@@ -2,10 +2,10 @@
   "name": "vquest",
   "version": "1.0.0",
   "description": "Vquest is a minimal virtual questing game powered by an AI dungeon master. A main instance of the game hosts a room that players can join from their mobile devices. Players propose actions for each step in the quest and then vote on the submitted options.",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --check server.js"
+    "start": "node src/server.js",
+    "test": "node --check src/server.js"
   },
   "keywords": [],
   "author": "",

@@ -2,64 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Player View</title>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-</head>
-<body>
-  <div id="root"></div>
-  <script>
-    function App() {
-      const [name, setName] = React.useState('');
-      const [code, setCode] = React.useState('');
-      const [playerId, setPlayerId] = React.useState(null);
-
-      const [context, setContext] = React.useState('');
-      const [prompt, setPrompt] = React.useState('');
-      const join = async () => {
-        const res = await fetch(`/room/${code}/join`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({name})
-        });
-        const data = await res.json();
-        setPlayerId(data.id);
-        setContext(data.context || '');
-        setPrompt(data.prompt || '');
-      };
-
-      const sendAction = async () => {
-        const text = document.getElementById('actionText').value;
-        await fetch(`/room/${code}/action`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({player_id: playerId, text})
-        });
-      };
-
-      return React.createElement('div', null,
-        React.createElement('h1', null, 'Player'),
-        React.createElement('div', null,
-          'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
-        React.createElement('div', null,
-          'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
-        React.createElement('button', {onClick: join}, 'Join'),
-        playerId && [
-          context && React.createElement('div', {key: 'context', style: {margin: '1em 0', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
-          prompt && React.createElement('div', {key: 'prompt', style: {margin: '1em 0', fontWeight: 'bold', color: '#2c1a0b'}}, prompt),
-          React.createElement('input', {id: 'actionText', placeholder: 'Your action', key: 'action'}),
-          React.createElement('button', {onClick: sendAction, key: 'send'}, 'Send')
-        ]
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
-  </script>
-</body>
-<!DOCTYPE html>
-<html>
-</head>
-  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Player View</title>
   <link rel="stylesheet" href="medieval.css">
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -75,7 +18,13 @@
     function App() {
       const [name, setName] = React.useState('');
       const [code, setCode] = React.useState(codeParam);
-      const [playerId, setPlayerId] = React.useState(null);
+      const [player, setPlayer] = React.useState(null);
+      const [context, setContext] = React.useState('');
+      const [prompt, setPrompt] = React.useState('');
+      const [actions, setActions] = React.useState([]);
+      const [votes, setVotes] = React.useState([]);
+      const [hasVoted, setHasVoted] = React.useState(false);
+      const wsRef = React.useRef(null);
 
       const join = async () => {
         const res = await fetch(`/room/${code}/join`, {
@@ -84,28 +33,90 @@
           body: JSON.stringify({name})
         });
         const data = await res.json();
-        setPlayerId(data.id);
+        setPlayer(data);
+        setContext(data.context);
+        setPrompt(data.prompt);
       };
+
+      React.useEffect(() => {
+        if (!player) return;
+        const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${wsProto}://${location.host}/room/${code}`);
+        ws.onmessage = (e) => {
+          const data = JSON.parse(e.data);
+          if (data.context) setContext(data.context);
+          if (data.prompt) setPrompt(data.prompt);
+          if (data.actions) {
+            setActions(data.actions);
+            if (data.actions.length === 0) {
+              setHasVoted(false); // Reset for new round
+            }
+          }
+          if (data.votes) setVotes(data.votes);
+        };
+        wsRef.current = ws;
+        return () => ws.close();
+      }, [player]);
 
       const sendAction = async () => {
         const text = document.getElementById('actionText').value;
         await fetch(`/room/${code}/action`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({player_id: playerId, text})
+          body: JSON.stringify({player_id: player.id, text})
         });
+      };
+
+      const vote = async (choice) => {
+        await fetch(`/room/${code}/vote`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({player_id: player.id, choice})
+        });
+        setHasVoted(true);
       };
 
       return React.createElement('div', null,
         React.createElement('h1', null, 'Player'),
-        React.createElement('div', null,
-          'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
-        React.createElement('div', null,
-          'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
-        React.createElement('button', {onClick: join}, 'Join'),
-        playerId && React.createElement('div', null,
-          React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
-          React.createElement('button', {onClick: sendAction}, 'Send')
+        !player && React.createElement('div', null,
+          React.createElement('div', null,
+            'Name ', React.createElement('input', {value: name, onChange: e => setName(e.target.value)})),
+          React.createElement('div', null,
+            'Room ', React.createElement('input', {value: code, onChange: e => setCode(e.target.value)})),
+          React.createElement('button', {onClick: join}, 'Join')
+        ),
+        player && React.createElement('div', null,
+          React.createElement('h2', null, player.name),
+          player.character && React.createElement('div', null,
+            React.createElement('h3', null, 'Stats'),
+            player.character.stats && React.createElement('ul', null,
+              Object.entries(player.character.stats).map(([stat, value]) =>
+                React.createElement('li', {key: stat}, `${stat}: ${value}`)
+              )
+            ),
+            React.createElement('h3', null, 'Inventory'),
+            player.character.inventory && React.createElement('ul', null,
+              player.character.inventory.length > 0
+                ? player.character.inventory.map((item, i) =>
+                    React.createElement('li', {key: i}, item)
+                  )
+                : React.createElement('li', null, 'Empty')
+            )
+          ),
+          React.createElement('hr', null),
+          React.createElement('div', {style: {whiteSpace: 'pre-wrap', marginBottom: '1em', fontStyle: 'italic', background: '#f4e1b6', padding: '0.7em', borderRadius: '8px'}}, context),
+          React.createElement('div', {style: {marginBottom: '1em', fontWeight: 'bold'}}, prompt),
+          React.createElement('div', null,
+            React.createElement('input', {id: 'actionText', placeholder: 'Your action'}),
+            React.createElement('button', {onClick: sendAction}, 'Send')
+          ),
+          React.createElement('h2', null, 'Actions'),
+          actions.map((action, i) =>
+            React.createElement('div', {key: i, style: {marginBottom: '0.5em'}},
+              React.createElement('button', {onClick: () => vote(i), disabled: hasVoted}, 'Vote'),
+              ` ${action.text} (${votes[i] || 0} votes)`
+            )
+          )
         )
       );
     }
