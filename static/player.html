@@ -76,6 +76,15 @@
         setHasVoted(true);
       };
 
+      const vote = async (choice) => {
+        await fetch(`/room/${code}/vote`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({player_id: playerId, choice})
+        });
+        setHasVoted(true);
+      };
+
       return React.createElement('div', null,
         React.createElement('h1', null, 'Player'),
         !player && React.createElement('div', null,
